@@ -1,0 +1,176 @@
+{
+  "professores": [
+    {
+      "id": "md2agugqhniy9wh80y5",
+      "nome": "Samária",
+      "email": "scpessoa66@gmail.com",
+      "materia": "LIBRAS",
+      "telefone": "(69) 9 9329-4814",
+      "createdAt": "2025-07-13T23:11:34.970Z"
+    }
+  ],
+  "turmas": [
+    {
+      "id": "md2ah21m3pqqpxko0sl",
+      "nome": "9 a Matutino",
+      "professorId": "md2agugqhniy9wh80y5",
+      "ano": "2025",
+      "semestre": null,
+      "observacao": null,
+      "minPassingGrade": 6,
+      "createdAt": "2025-07-13T23:11:44.794Z"
+    }
+  ],
+  "alunos": [
+    {
+      "id": "md2ahexn52y5h2k4q0q",
+      "nome": "Lais Pessoa",
+      "matricula": "01",
+      "turmaId": "md2ah21m3pqqpxko0sl",
+      "email": "scpessoa66@gmail.com",
+      "telefone": "(69) 9 9329-4814",
+      "dataNascimento": "2020-12-12",
+      "responsavel": "Carol",
+      "createdAt": "2025-07-13T23:12:01.499Z"
+    },
+    {
+      "id": "md2ahrwniuv01ysdin",
+      "nome": "Jacson Silva",
+      "matricula": "02",
+      "turmaId": "md2ah21m3pqqpxko0sl",
+      "email": "joaoserillon@gmail.com",
+      "telefone": "(69) 99931-1588",
+      "dataNascimento": "2020-12-12",
+      "responsavel": "Jacson",
+      "createdAt": "2025-07-13T23:12:18.311Z"
+    }
+  ],
+  "presencas": [],
+  "notas": [
+    {
+      "id": "md2ai0awmsmmc39xig",
+      "alunoId": "md2ahrwniuv01ysdin",
+      "turmaId": "md2ah21m3pqqpxko0sl",
+      "avaliacao": "Avaliação do 1º Bimestre",
+      "nota": 8.5,
+      "dataAvaliacao": "2025-07-13",
+      "bimestre": "1",
+      "observacao": null,
+      "createdAt": "2025-07-13T23:12:29.192Z"
+    },
+    {
+      "id": "md2ajrzwspefj6g2xe",
+      "alunoId": "md2ahexn52y5h2k4q0q",
+      "turmaId": "md2ah21m3pqqpxko0sl",
+      "avaliacao": "Avaliação do 1º Bimestre",
+      "nota": 8.9,
+      "dataAvaliacao": "2025-07-13",
+      "bimestre": "1",
+      "observacao": "Prova semestral",
+      "createdAt": "2025-07-13T23:13:51.740Z"
+    },
+    {
+      "id": "md2asp3pc5w8q81srja",
+      "alunoId": "md2ahrwniuv01ysdin",
+      "turmaId": "md2ah21m3pqqpxko0sl",
+      "avaliacao": "Avaliação do 2º Bimestre",
+      "nota": 5.6,
+      "dataAvaliacao": "2025-07-13",
+      "bimestre": "2",
+      "observacao": null,
+      "createdAt": "2025-07-13T23:20:47.893Z"
+    },
+    {
+      "id": "md2asw0fw6zem90o9dd",
+      "alunoId": "md2ahrwniuv01ysdin",
+      "turmaId": "md2ah21m3pqqpxko0sl",
+      "avaliacao": "Avaliação do 3º Bimestre",
+      "nota": 9,
+      "dataAvaliacao": "2025-07-13",
+      "bimestre": "3",
+      "observacao": null,
+      "createdAt": "2025-07-13T23:20:56.847Z"
+    },
+    {
+      "id": "md2asz7aezxjehev37i",
+      "alunoId": "md2ahrwniuv01ysdin",
+      "turmaId": "md2ah21m3pqqpxko0sl",
+      "avaliacao": "Avaliação do 4º Bimestre",
+      "nota": 6,
+      "dataAvaliacao": "2025-07-13",
+      "bimestre": "4",
+      "observacao": null,
+      "createdAt": "2025-07-13T23:21:00.982Z"
+    },
+    {
+      "id": "md2atcn1n6noozuztz",
+      "alunoId": "md2ahexn52y5h2k4q0q",
+      "turmaId": "md2ah21m3pqqpxko0sl",
+      "avaliacao": "Avaliação do 3º Bimestre",
+      "nota": 2,
+      "dataAvaliacao": "2025-07-13",
+      "bimestre": "3",
+      "observacao": "Prova semestral",
+      "createdAt": "2025-07-13T23:21:18.397Z"
+    },
+    {
+      "id": "md2atgnik9ng3k3na2",
+      "alunoId": "md2ahexn52y5h2k4q0q",
+      "turmaId": "md2ah21m3pqqpxko0sl",
+      "avaliacao": "Avaliação do 4º Bimestre",
+      "nota": 6,
+      "dataAvaliacao": "2025-07-13",
+      "bimestre": "4",
+      "observacao": "Prova semestral",
+      "createdAt": "2025-07-13T23:21:23.598Z"
+    },
+    {
+      "id": "md37tvkv1ai7frtqa3t",
+      "alunoId": "md2ahrwniuv01ysdin",
+      "turmaId": "md2ah21m3pqqpxko0sl",
+      "avaliacao": "Trabalho ",
+      "nota": 2,
+      "dataAvaliacao": "2025-07-14",
+      "bimestre": "1",
+      "observacao": "trabalho aguas",
+      "createdAt": "2025-07-14T14:45:30.271Z"
+    },
+    {
+      "id": "md39m7f7bdp15tsp7gc",
+      "alunoId": "md2ahexn52y5h2k4q0q",
+      "turmaId": "md2ah21m3pqqpxko0sl",
+      "avaliacao": "Prova semestral",
+      "nota": 5,
+      "dataAvaliacao": "2025-07-14",
+      "bimestre": "2",
+      "observacao": "Prova semestral",
+      "createdAt": "2025-07-14T15:35:31.603Z"
+    },
+    {
+      "id": "md3ajlm0elgdyfqzgfr",
+      "alunoId": "md2ahexn52y5h2k4q0q",
+      "turmaId": "md2ah21m3pqqpxko0sl",
+      "avaliacao": "scas",
+      "nota": 3,
+      "dataAvaliacao": "2025-07-14",
+      "bimestre": "3",
+      "observacao": "asdas",
+      "createdAt": "2025-07-14T16:01:29.640Z"
+    },
+    {
+      "id": "md3ayzy9x3ymggyjyk",
+      "alunoId": "md2ahexn52y5h2k4q0q",
+      "turmaId": "md2ah21m3pqqpxko0sl",
+      "avaliacao": "sdasd",
+      "nota": 1,
+      "dataAvaliacao": "2025-07-14",
+      "bimestre": "3",
+      "observacao": "asdas",
+      "createdAt": "2025-07-14T16:13:28.065Z"
+    }
+  ],
+  "planejamentos": [],
+  "feriados": [],
+  "eventos": [],
+  "alertas": []
+}

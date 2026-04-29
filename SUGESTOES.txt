@@ -1,0 +1,72 @@
+SUGESTÕES DE FUNCIONALIDADES PARA O SISTEMA PROFESSORMANAGER
+=======================================================
+
+1. CONTROLE POR PROFESSOR
+   - Atualmente todos veem todas as turmas
+   - Implementar filtro automático baseado no professor logado
+   - Cada professor só vê suas próprias turmas/alunos
+
+2. QUADRO DE AVISOS / MURAL
+   - Professores postam avisos para turmas específicas
+   - Pais/alunos veem avisos da sua turma
+   - Sistema de notificações
+
+3. BOLETIM INDIVIDUAL POR ALUNO
+   - Relatório formatado com notas por bimestre
+   - Médias por disciplina
+   - Exportável em PDF
+
+4. BACKUP/RESTORE MANUAL
+   - Baixar banco de dados completo
+   - Restaurar backup viainterface
+   - Histórico de backups
+
+5. DASHBOARD ANALYTICS
+   - Gráficos de evolução da turma
+   - Mapa de risco da escola
+   - Estatísticas visuais
+
+6. UPLOAD DE PRESENÇA EM MASSA
+   - Importar de planilha Excel
+   - Carrega presença do mês inteiro de uma vez
+
+7. COMUNICAÇÃO COM PAIS
+   - Enviar observações para responsáveis
+   - Integração com email ou SMS (futuro)
+
+8. FERIADOS ESCOLARES
+   - Já existe tabela no banco
+   - Falta página de gestão de feriados
+   - Automaticamente bloquear在这些日期 registro de presença
+
+9. RELATÓRIO DE FREQUÊNCIA MENSAL
+   - Planilha por turma/mês
+   - Envio automático para coordenação
+
+10. SISTEMA DE NOTIFICAÇÕES PUSH
+    - Alertas quando nova nota é lançada
+    - Alertas de frequência baixa
+
+11. CADASTRO DE DISCIPLINAS/MATÉRIAS
+    - Associar matéria ao professor
+    - Professores veem apenas suas matérias
+
+12. REGISTRO DE AULAS
+    - Controlar quais aulas foram dadas
+    - Planejamentos vs executado
+
+13. EXPORTAÇÃO DE DADOS
+    - Exportar alunos para Excel
+    - Exportar notas para planilha
+
+14. LOG DE ATIVIDADES
+    - Auditoria de quem fez o quê
+    - Histórico de alterações
+
+15. FILTROS AVANÇADOS EM RELATÓRIOS
+    - Por período
+    - Por tipo de avaliação
+    - Por turma
+
+---
+Data: 29/04/2026

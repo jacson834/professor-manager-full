@@ -18,12 +18,14 @@ import {
   Turma, PlanejamentoAula, Feriado // Assegure-se que Feriado está exportado
 } from '@/lib/database';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
 // Importa o novo serviço de feriados externos
 import { externalHolidaysApi } from '@/lib/externalHolidaysApi';
 
 export default function PlanejamentoPage() {
+  const { user } = useAuth();
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [turmaSelecionada, setTurmaSelecionada] = useState<string>('');
   const [dataSelecionada, setDataSelecionada] = useState<Date | undefined>(new Date());
@@ -41,7 +43,8 @@ export default function PlanejamentoPage() {
   // carregarDados é definido ANTES de ser chamado em useEffect, resolvendo o ReferenceError.
   const carregarDados = useCallback(async () => {
     try {
-      const turmasData = await turmasApi.getTurmas();
+      const professorId = user?.role === 'professor' ? user.professorId : undefined;
+      const turmasData = await turmasApi.getTurmas(professorId);
       setTurmas(turmasData);
 
       const feriadosData = await feriadosApi.getFeriados();
@@ -64,32 +67,12 @@ export default function PlanejamentoPage() {
   // Lógica de sincronização de feriados nacionais
   const syncNationalHolidays = useCallback(async (year: number) => {
     try {
-      const nationalHolidays = await externalHolidaysApi.getNationalHolidays(year);
-      const existingFeriados = await feriadosApi.getFeriados(); // Feriados já no seu DB
+      const result = await externalHolidaysApi.getNationalHolidays(year);
 
-      let holidaysAddedCount = 0;
-
-      for (const nationalHoliday of nationalHolidays) {
-        const isAlreadyInDb = existingFeriados.some(f => f.data === nationalHoliday.data);
-
-        if (!isAlreadyInDb) {
-          await feriadosApi.addFeriado({
-            data: nationalHoliday.data,
-            nome: nationalHoliday.nome
-          });
-          holidaysAddedCount++;
-        }
-        // Opcional: Se já existe, você pode verificar se o nome é diferente e atualizar
-        // const existing = existingFeriados.find(f => f.data === nationalHoliday.data);
-        // if (existing && existing.nome !== nationalHoliday.nome) {
-        //     await feriadosApi.updateFeriado(existing.id, { ...existing, nome: nationalHoliday.nome });
-        // }
-      }
-
-      if (holidaysAddedCount > 0) {
+      if (result.added > 0) {
         toast({
           title: "Sincronização de Feriados",
-          description: `${holidaysAddedCount} feriados nacionais de ${year} foram adicionados.`,
+          description: result.message,
         });
       } else {
         toast({
@@ -98,6 +81,10 @@ export default function PlanejamentoPage() {
           variant: "secondary"
         });
       }
+      
+      // Recarregar feriados após sincronização
+      const feriadosData = await feriadosApi.getFeriados();
+      setFeriados(feriadosData);
     } catch (error) {
       console.error(`Erro ao sincronizar feriados nacionais de ${year}:`, error);
       toast({

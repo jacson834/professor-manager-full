@@ -27,6 +27,7 @@ import {
 import { Plus, Edit, Trash2, Mail, Phone, User, Calendar, LayoutGrid, List, Table as TableIcon, Search, ArrowDownAZ, ArrowUpAZ, Hash, Users as UsersIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
+import { useAuth } from '@/contexts/AuthContext';
 
 
 // Definir tipos para os modos de visualização
@@ -41,6 +42,7 @@ type SearchCriteria = 'nome' | 'matricula' | 'turma';
 
 
 export default function AlunosPage() {
+  const { user } = useAuth();
   const [alunos, setAlunos] = useState<Aluno[]>([]);
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -72,11 +74,12 @@ export default function AlunosPage() {
 
   useEffect(() => {
     loadAlunos();
-  }, [selectedTurma]);
+  }, [selectedTurma, user]);
 
-  const loadAlunos = async () => { // Tornar a função assíncrona
+  const loadAlunos = async () => {
     try {
-      const allAlunosData = await alunosApi.getAlunos(); // API Assíncrona
+      const professorId = user?.role === 'professor' ? user.professorId : undefined;
+      const allAlunosData = await alunosApi.getAlunos(professorId);
       const filtered = selectedTurma === 'todas'
         ? allAlunosData
         : allAlunosData.filter(aluno => aluno.turmaId === selectedTurma);
@@ -91,9 +94,10 @@ export default function AlunosPage() {
     }
   };
 
-  const loadTurmas = async () => { // Tornar a função assíncrona
+  const loadTurmas = async () => {
     try {
-      const data = await turmasApi.getTurmas(); // API Assíncrona
+      const professorId = user?.role === 'professor' ? user.professorId : undefined;
+      const data = await turmasApi.getTurmas(professorId);
       setTurmas(data);
     } catch (error) {
       console.error("Erro ao carregar turmas para seleção:", error);
@@ -118,7 +122,8 @@ export default function AlunosPage() {
     }
 
     try {
-      const alunosExistentes = await alunosApi.getAlunos(); // API Assíncrona
+      const professorId = user?.role === 'professor' ? user.professorId : undefined;
+      const alunosExistentes = await alunosApi.getAlunos(professorId);
       const matriculaExists = alunosExistentes.some(a =>
         a.matricula === formData.matricula && a.id !== editingAluno?.id
       );

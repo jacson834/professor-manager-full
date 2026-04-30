@@ -6,6 +6,7 @@ interface User {
   username: string;
   nome: string;
   role: 'admin' | 'professor';
+  professorId?: string | null;
 }
 
 interface AuthContextType {
@@ -31,7 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (username: string, password: string) => {
     try {
-      const { data } = await axios.post('http://10.1.1.19:3000/api/login', { username, password });
+      const { data } = await axios.post('/api/login', { username, password });
       setUser(data.user);
       localStorage.setItem('pm_user', JSON.stringify(data.user));
     } catch (error: any) {

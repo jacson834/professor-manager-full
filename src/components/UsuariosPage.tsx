@@ -38,7 +38,7 @@ export default function UsuariosPage() {
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
-      const { data } = await axios.get('http://10.1.1.19:3000/api/usuarios');
+      const { data } = await axios.get('/api/usuarios');
       setUsers(data.usuarios);
     } catch (error: any) {
       toast({
@@ -58,7 +58,7 @@ export default function UsuariosPage() {
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await axios.post('http://10.1.1.19:3000/api/usuarios', newUser);
+      await axios.post('/api/usuarios', newUser);
       toast({ title: "Sucesso", description: "Usuário criado com sucesso!" });
       setNewUser({ username: '', password: '', nome: '', role: 'professor' });
       setIsDialogOpen(false);
@@ -75,7 +75,7 @@ export default function UsuariosPage() {
   const handleDeleteUser = async (id: string) => {
     if (!window.confirm("Tem certeza que deseja excluir este usuário?")) return;
     try {
-      await axios.delete(`http://10.1.1.19:3000/api/usuarios/${id}`);
+      await axios.delete(`/api/usuarios/${id}`);
       toast({ title: "Sucesso", description: "Usuário removido!" });
       fetchUsers();
     } catch (error: any) {
@@ -94,7 +94,7 @@ export default function UsuariosPage() {
           <h1 className="text-3xl font-bold text-foreground">Gestão de Usuários</h1>
           <p className="text-muted-foreground">Gerencie os acessos ao sistema</p>
         </div>
-        <Dialog onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary-hover">
               <UserPlus className="h-4 w-4 mr-2" /> Novo Usuário

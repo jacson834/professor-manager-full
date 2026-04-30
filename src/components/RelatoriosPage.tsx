@@ -15,6 +15,7 @@ import {
 import { FileText, Download, User, TrendingUp, Calendar, Award, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLocation } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface RelatorioAluno {
   aluno: Aluno;
@@ -38,6 +39,7 @@ interface RelatorioTurma {
 }
 
 export default function RelatoriosPage() {
+  const { user } = useAuth();
   const location = useLocation();
   const initialTurmaIdFromState = location.state?.turmaId;
 
@@ -61,9 +63,10 @@ export default function RelatoriosPage() {
     const loadAllInitialData = async () => {
       setLoadingData(true);
       try {
+        const professorId = user?.role === 'professor' ? user.professorId : undefined;
         const [turmasData, alunosData, notasData, presencasData] = await Promise.all([
-          turmasApi.getTurmas(),
-          alunosApi.getAlunos(),
+          turmasApi.getTurmas(professorId),
+          alunosApi.getAlunos(professorId),
           notasApi.getNotas(),
           presencasApi.getPresencas(),
         ]);
@@ -227,6 +230,7 @@ export default function RelatoriosPage() {
         <head>
           <meta charset="UTF-8">
           <style>
+            @page { size: landscape; }
             body { font-family: Arial, sans-serif; margin: 20px; }
             .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
             .info-section { margin-bottom: 20px; }
@@ -392,6 +396,7 @@ export default function RelatoriosPage() {
         <head>
           <meta charset="UTF-8">
           <style>
+            @page { size: landscape; }
             body { font-family: Arial, sans-serif; margin: 20px; }
             .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
             .info-section { margin-bottom: 20px; }

@@ -143,7 +143,7 @@ export default function Layout() {
       <main className="flex-1 flex flex-col min-h-screen md:ml-64">
         {/* Header fixo */}
         <header className="bg-gradient-primary shadow-elegant sticky top-0 z-40 flex-shrink-0">
-          <div className="px-4 md:px-6 py-4 pl-14 md:pl-0">
+          <div className="px-4 md:px-6 py-4 pl-14 md:pl-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-primary-foreground truncate">
                 {currentPageLabel}

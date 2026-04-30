@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://10.1.1.19:3000/api';
+const API_BASE_URL = '/api';
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -115,8 +115,9 @@ export const professoresApi = {
 };
 
 export const turmasApi = {
-  getTurmas: async (): Promise<Turma[]> => {
-    const { data } = await axios.get(`${API_BASE_URL}/turmas`);
+  getTurmas: async (professorId?: string): Promise<Turma[]> => {
+    const params = professorId ? { professorId } : {};
+    const { data } = await axios.get(`${API_BASE_URL}/turmas`, { params });
     return data.turmas;
   },
   getTurmaById: async (id: string): Promise<Turma | null> => {
@@ -141,8 +142,9 @@ export const turmasApi = {
 };
 
 export const alunosApi = {
-  getAlunos: async (): Promise<Aluno[]> => {
-    const { data } = await axios.get(`${API_BASE_URL}/alunos`);
+  getAlunos: async (professorId?: string): Promise<Aluno[]> => {
+    const params = professorId ? { professorId } : {};
+    const { data } = await axios.get(`${API_BASE_URL}/alunos`, { params });
     return data.alunos;
   },
   getAlunosByTurma: async (turmaId: string): Promise<Aluno[]> => {

@@ -15,8 +15,11 @@ import {
   presencasApi,
   Turma, Aluno, Presenca
 } from '@/lib/database';
-import { Calendar, Users, Check, X, Save, Search, ArrowDownAZ, ArrowUpAZ, Hash, LayoutGrid, Table as TableIcon, Info, Edit, Trash2, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
+import { Calendar, Users, Check, X, Save, Search, ArrowDownAZ, ArrowUpAZ, Hash, LayoutGrid, Table as TableIcon, Info, Edit, Trash2, ChevronLeft, ChevronRight, Eye, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // Definir tipos para os modos de visualização
 type ViewMode = 'card' | 'detailed-list';
@@ -29,6 +32,7 @@ type SortDirection = 'asc' | 'desc';
 type SearchCriteria = 'nome' | 'matricula';
 
 export default function PresencaPage() {
+  const { user } = useAuth();
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [alunos, setAlunos] = useState<Aluno[]>([]);
   const [presencas, setPresencas] = useState<Presenca[]>([]);
@@ -58,7 +62,8 @@ export default function PresencaPage() {
   useEffect(() => {
     const fetchTurmas = async () => {
       try {
-        const data = await turmasApi.getTurmas();
+        const professorId = user?.role === 'professor' ? user.professorId : undefined;
+        const data = await turmasApi.getTurmas(professorId);
         setTurmas(data);
       } catch (error) {
         console.error("Erro ao carregar turmas:", error);
@@ -70,90 +75,53 @@ export default function PresencaPage() {
       }
     };
     fetchTurmas();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     const fetchAlunosAndPresencas = async () => {
-      if (selectedTurma) {
-        try {
-          const alunosData = await alunosApi.getAlunosByTurma(selectedTurma);
-          setAlunos(alunosData);
+      if (!selectedTurma) return;
+      
+      try {
+        const alunosData = await alunosApi.getAlunosByTurma(selectedTurma);
+        setAlunos(alunosData);
 
-          const allPresencasForTurma = await presencasApi.getPresencasByTurma(selectedTurma);
-          const presencasDate = allPresencasForTurma.filter(p => p.data === selectedDate);
-          setPresencas(presencasDate);
+        const allPresencasForTurma = await presencasApi.getPresencasByTurma(selectedTurma);
+        const presencasDate = allPresencasForTurma.filter(p => p.data === selectedDate);
+        setPresencas(presencasDate);
 
-          const data: {[key: string]: {presente: boolean, observacao: string}} = {};
-          alunosData.forEach(aluno => {
-            const existingPresenca = presencasDate.find(p => p.alunoId === aluno.id);
-            data[aluno.id] = {
-              presente: existingPresenca ? existingPresenca.presente : false,
-              observacao: existingPresenca ? existingPresenca.observacao || '' : ''
-            };
-          });
-          setPresencaData(data);
-
-        } catch (error) {
-          console.error("Erro ao carregar alunos ou presenças:", error);
-          toast({
-            title: "Erro",
-            description: "Falha ao carregar alunos ou dados de presença.",
-            variant: "destructive"
-          });
-          setAlunos([]);
-          setPresencaData({});
-        }
-      } else {
-        setAlunos([]);
-        setPresencas([]);
-        setPresencaData({});
+        const data: {[key: string]: {presente: boolean, observacao: string}} = {};
+        alunosData.forEach(aluno => {
+          const existingPresenca = presencasDate.find(p => p.alunoId === aluno.id);
+          data[aluno.id] = {
+            presente: existingPresenca ? existingPresenca.presente : false,
+            observacao: existingPresenca ? existingPresenca.observacao || '' : ''
+          };
+        });
+        setPresencaData(data);
+      } catch (error) {
+        console.error("Erro ao carregar dados de presença:", error);
       }
     };
+
     fetchAlunosAndPresencas();
   }, [selectedTurma, selectedDate]);
 
-  const handlePresencaChange = (alunoId: string, presente: boolean) => {
-    setPresencaData(prev => ({
-      ...prev,
-      [alunoId]: {
-        presente,
-        observacao: prev[alunoId]?.observacao || ''
-      }
-    }));
-  };
-
-  const handleObservacaoChange = (alunoId: string, observacao: string) => {
-    setPresencaData(prev => ({
-      ...prev,
-      [alunoId]: {
-        presente: prev[alunoId]?.presente || false,
-        observacao
-      }
-    }));
-  };
-
-  const fetchPresencasMensais = async () => {
-    if (!selectedTurma || !mesSelecionado) return;
-    setLoadingMensal(true);
-    try {
-      const allPresencas = await presencasApi.getPresencasByTurma(selectedTurma);
-      const [ano, mes] = mesSelecionado.split('-');
-      const mesStr = `${ano}-${String(mes).padStart(2, '0')}`;
-      const presencasDoMes = allPresencas.filter(p => p.data.startsWith(mesStr));
-      setPresencasMensais(presencasDoMes);
-    } catch (error) {
-      console.error("Erro ao carregar presenças mensais:", error);
-      toast({ title: "Erro", description: "Falha ao carregar dados mensais.", variant: "destructive" });
-    } finally {
-      setLoadingMensal(false);
-    }
-  };
-
   useEffect(() => {
-    if (pageMode === 'mensal' && selectedTurma) {
-      fetchPresencasMensais();
-    }
-  }, [pageMode, selectedTurma, mesSelecionado]);
+    const fetchPresencasMensais = async () => {
+      if (!selectedTurma || pageMode !== 'mensal') return;
+      
+      try {
+        const allPresencas = await presencasApi.getPresencasByTurma(selectedTurma);
+        const mesStr = mesSelecionado;
+        const presencasDoMes = allPresencas.filter(p => p.data.startsWith(mesStr));
+        setPresencasMensais(presencasDoMes);
+      } catch (error) {
+        console.error("Erro ao carregar presenças mensais:", error);
+      }
+    };
+
+    fetchPresencasMensais();
+  }, [selectedTurma, mesSelecionado, pageMode]);
 
   const handleSavePresencas = async () => {
     if (!selectedTurma || !selectedDate) {
@@ -174,15 +142,14 @@ export default function PresencaPage() {
         const existingRecord = presencasForCurrentDate.find(p => p.alunoId === aluno.id);
 
         if (dadosPresenca !== undefined) {
-          const presenteStatus = Boolean(dadosPresenca.presente); // <--- GARANTIR QUE É BOOLEANO ESTREITO
+          const presenteStatus = Boolean(dadosPresenca.presente);
 
           if (existingRecord) {
-            // CORREÇÃO AQUI: Enviar todos os dados obrigatórios para update
             await presencasApi.updatePresenca(existingRecord.id, {
-              alunoId: existingRecord.alunoId,
-              turmaId: existingRecord.turmaId,
-              data: existingRecord.data,
-              presente: presenteStatus, // Usar o booleano estrito
+              alunoId: aluno.id,
+              turmaId: selectedTurma,
+              data: selectedDate,
+              presente: presenteStatus,
               observacao: dadosPresenca.observacao
             });
           } else {
@@ -190,7 +157,7 @@ export default function PresencaPage() {
               alunoId: aluno.id,
               turmaId: selectedTurma,
               data: selectedDate,
-              presente: presenteStatus, // Usar o booleano estrito
+              presente: presenteStatus,
               observacao: dadosPresenca.observacao
             });
           }
@@ -224,10 +191,10 @@ export default function PresencaPage() {
         setAlunos(alunosData);
 
         const allPresencasForTurma = await presencasApi.getPresencasByTurma(selectedTurma);
-        const presencasDate = allPresencasForTurma.filter(p => p.data === selectedDate);
-        setPresencas(presencasDate);
 
         const data: {[key: string]: {presente: boolean, observacao: string}} = {};
+        const presencasDate = allPresencasForTurma.filter(p => p.data === selectedDate);
+        
         alunosData.forEach(aluno => {
           const existingPresenca = presencasDate.find(p => p.alunoId === aluno.id);
           data[aluno.id] = {
@@ -235,17 +202,99 @@ export default function PresencaPage() {
             observacao: existingPresenca ? existingPresenca.observacao || '' : ''
           };
         });
+        
         setPresencaData(data);
-
+        setPresencas(presencasDate);
       } catch (error) {
-        console.error("Erro ao recarregar alunos ou presenças após salvar:", error);
-        toast({
-          title: "Erro",
-          description: "Falha ao recarregar dados de presença após salvar.",
-          variant: "destructive"
-        });
+        console.error("Erro ao recarregar dados após salvar:", error);
       }
     }
+  };
+
+  const handlePresencaChange = (alunoId: string, presente: boolean) => {
+    setPresencaData(prev => ({
+      ...prev,
+      [alunoId]: {
+        ...prev[alunoId],
+        presente,
+        observacao: prev[alunoId]?.observacao || ''
+      }
+    }));
+  };
+
+  const handleObservacaoChange = (alunoId: string, observacao: string) => {
+    setPresencaData(prev => ({
+      ...prev,
+      [alunoId]: {
+        ...prev[alunoId],
+        presente: prev[alunoId]?.presente ?? false,
+        observacao
+      }
+    }));
+  };
+
+  const exportToPDF = () => {
+    if (!selectedTurma || !turmas.find(t => t.id === selectedTurma)) {
+      toast({
+        title: "Erro",
+        description: "Selecione uma turma.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const turma = turmas.find(t => t.id === selectedTurma);
+    const [ano, mes] = mesSelecionado.split('-');
+    const mesNome = new Date(parseInt(ano), parseInt(mes) - 1).toLocaleString('pt-BR', { month: 'long' });
+
+    const doc = new jsPDF('l');
+    
+    doc.setFontSize(16);
+    doc.text(`Relatório de Presenças - ${turma?.nome}`, 14, 20);
+    doc.setFontSize(12);
+    doc.text(`${mesNome} de ${ano}`, 14, 28);
+
+    const tableData = alunos.map(aluno => {
+      const presencasAluno = presencasMensais.filter(p => p.alunoId === aluno.id);
+      const presentes = presencasAluno.filter(p => p.presente).length;
+      const total = presencasAluno.length;
+      const percentual = total > 0 ? Math.round((presentes / total) * 100) : 0;
+
+      const days: string[] = [];
+      for (let d = 1; d <= 31; d++) {
+        const dataStr = `${mesSelecionado}-${String(d).padStart(2, '0')}`;
+        const p = presencasAluno.find(p => p.data === dataStr);
+        days.push(p ? (p.presente ? 'P' : 'F') : '-');
+      }
+
+      return [
+        aluno.nome,
+        aluno.matricula,
+        ...days.slice(0, 31),
+        `${percentual}%`
+      ];
+    });
+
+    const header = ['Aluno', 'Matrícula', ...Array.from({ length: 31 }, (_, i) => String(i + 1)), '%'];
+
+    autoTable(doc, {
+      head: [header],
+      body: tableData,
+      startY: 35,
+      styles: { fontSize: 6 },
+      headStyles: { fontSize: 6, fillColor: [66, 66, 66] },
+      columnStyles: {
+        0: { cellWidth: 20 },
+        1: { cellWidth: 10 },
+      }
+    });
+
+    doc.save(`presencas_${turma?.nome}_${mesSelecionado}.pdf`);
+    
+    toast({
+      title: "Sucesso",
+      description: "PDF exportado com sucesso!"
+    });
   };
 
 
@@ -444,6 +493,10 @@ export default function PresencaPage() {
                 }}>
                   <ChevronRight size={18} />
                 </Button>
+                <Button variant="outline" size="sm" onClick={exportToPDF}>
+                  <Download size={16} className="mr-1" />
+                  PDF
+                </Button>
               </div>
             </CardTitle>
           </CardHeader>
@@ -466,7 +519,7 @@ export default function PresencaPage() {
                             const diaSemana = data.getDay();
                             if (data.getMonth() !== parseInt(mesSelecionado.split('-')[1]) - 1) return null;
                             return (
-                              <th key={dia} className={`px-1 py-2 text-center text-xs font-medium ${diaSemana === 0 || diaSemana === 6 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                              <th key={dia} className={`px-1 py-2 text-center text-xs font-medium border-l border-border/50 ${diaSemana === 0 || diaSemana === 6 ? 'text-destructive' : 'text-muted-foreground'}`}>
                                 {String(dia).padStart(2, '0')}
                               </th>
                             );
@@ -491,7 +544,7 @@ export default function PresencaPage() {
                                 const dataStr = `${prefixo}${String(dia).padStart(2, '0')}`;
                                 const presenca = presencasAluno.find(p => p.data === dataStr);
                                 return (
-                                  <td key={dia} className="px-1 py-1 text-center">
+                                  <td key={dia} className="px-1 py-1 text-center border-l border-border/50">
                                     {presenca ? (
                                       presenca.presente ? (
                                         <Check size={14} className="text-success mx-auto" />
@@ -600,13 +653,28 @@ export default function PresencaPage() {
                               </div>
                             </div>
                             <div className="flex space-x-1">
-                              {/* Checkbox e Observação para o modo Card */}
-                              <Checkbox
-                                id={`presenca-card-${aluno.id}`}
-                                checked={dadosPresenca.presente}
-                                onCheckedChange={(checked) => handlePresencaChange(aluno.id, checked as boolean)}
-                                className="data-[state=checked]:bg-success data-[state=checked]:border-success"
-                              />
+                              <button
+                                type="button"
+                                onClick={() => handlePresencaChange(aluno.id, true)}
+                                className={`w-8 h-8 rounded border font-bold text-sm ${
+                                  dadosPresenca.presente 
+                                    ? 'bg-success text-white border-success' 
+                                    : 'bg-muted text-muted-foreground border-border hover:bg-muted/80'
+                                }`}
+                              >
+                                P
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handlePresencaChange(aluno.id, false)}
+                                className={`w-8 h-8 rounded border font-bold text-sm ${
+                                  !dadosPresenca.presente && dadosPresenca.presente !== undefined
+                                    ? 'bg-destructive text-white border-destructive' 
+                                    : 'bg-muted text-muted-foreground border-border hover:bg-muted/80'
+                                }`}
+                              >
+                                F
+                              </button>
                             </div>
                           </div>
                         </CardHeader>
@@ -652,15 +720,30 @@ export default function PresencaPage() {
                             <td className="px-4 py-2 text-sm text-foreground">{aluno.nome}</td>
                             <td className="px-4 py-2 text-sm text-muted-foreground">{aluno.matricula}</td>
                             <td className="px-4 py-2 text-sm">
-                              <Checkbox
-                                id={`presenca-table-${aluno.id}`}
-                                checked={dadosPresenca.presente}
-                                onCheckedChange={(checked) => handlePresencaChange(aluno.id, checked as boolean)}
-                                className="data-[state=checked]:bg-success data-[state=checked]:border-success mr-2"
-                              />
-                              <Label htmlFor={`presenca-table-${aluno.id}`} className="text-sm cursor-pointer">
-                                {dadosPresenca.presente ? "Presente" : "Falta"}
-                              </Label>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handlePresencaChange(aluno.id, true)}
+                                  className={`w-8 h-8 rounded border font-bold text-sm ${
+                                    dadosPresenca.presente 
+                                      ? 'bg-success text-white border-success' 
+                                      : 'bg-muted text-muted-foreground border-border hover:bg-muted/80'
+                                  }`}
+                                >
+                                  P
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handlePresencaChange(aluno.id, false)}
+                                  className={`w-8 h-8 rounded border font-bold text-sm ${
+                                    !dadosPresenca.presente && dadosPresenca.presente !== undefined
+                                      ? 'bg-destructive text-white border-destructive' 
+                                      : 'bg-muted text-muted-foreground border-border hover:bg-muted/80'
+                                  }`}
+                                >
+                                  F
+                                </button>
+                              </div>
                             </td>
                             <td className="px-4 py-2 text-sm">
                               <Textarea

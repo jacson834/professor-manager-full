@@ -19,7 +19,7 @@ import {
   backupApi,
 } from '@/lib/database';
 import { useToast } from '@/hooks/use-toast';
-import { FileDown, FileUp, Eraser, Settings, Info, Cloud, Save } from 'lucide-react';
+import { FileDown, FileUp, Eraser, Settings, Info, Cloud, Save, Users } from 'lucide-react';
 import axios from 'axios';
 
 interface AppSettings {
@@ -74,7 +74,7 @@ export default function ConfiguracoesPage() {
     useEffect(() => {
       const fetchStatsAndSettings = async () => {
         try {
-          const settingsResponse = await axios.get('http://10.1.1.19:3000/api/settings');
+          const settingsResponse = await axios.get('/api/settings');
           if (settingsResponse.data) {
             setAppSettings(settingsResponse.data);
           }
@@ -108,7 +108,7 @@ export default function ConfiguracoesPage() {
   const handleSaveSettings = async () => {
     setIsSavingSettings(true);
     try {
-      await axios.post('http://10.1.1.19:3000/api/settings', appSettings);
+      await axios.post('/api/settings', appSettings);
       toast({
         title: "Sucesso",
         description: "Configurações salvas com sucesso!",
@@ -342,7 +342,7 @@ export default function ConfiguracoesPage() {
 
     setIsLoading(true);
     try {
-      await axios.post('http://10.1.1.19:3000/api/admin/clear-all-data');
+      await axios.post('/api/admin/clear-all-data');
 
       toast({
         title: "Sucesso",
@@ -361,6 +361,27 @@ export default function ConfiguracoesPage() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const migrateProfessorUsuario = async () => {
+    if (!window.confirm("Vincular usuários professores aos seus professores?")) {
+      return;
+    }
+    try {
+      const response = await axios.post('/api/admin/migrate-professor-usuario');
+      toast({
+        title: "Sucesso",
+        description: response.data.message,
+        variant: "default"
+      });
+    } catch (error) {
+      console.error("Erro na migração:", error);
+      toast({
+        title: "Erro",
+        description: "Falha na migração de professor-usuário.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -444,6 +465,19 @@ export default function ConfiguracoesPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
+              <div className="mb-6">
+                <h3 className="font-semibold text-foreground flex items-center gap-2 mb-2">
+                  <Users className="h-4 w-4" />
+                  Vincular Professores a Usuários
+                </h3>
+                <p className="text-sm text-muted-foreground mb-2">
+                 associa usuários professor aos seus registros de professor correspondentes.
+                </p>
+                <Button onClick={migrateProfessorUsuario} variant="outline">
+                  Executar Migração
+                </Button>
+              </div>
+              <Separator className="my-6" />
               <div>
                 <h3 className="font-semibold text-foreground flex items-center gap-2 mb-2">
                   <Eraser className="h-4 w-4 text-destructive" />

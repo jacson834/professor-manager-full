@@ -1,10 +1,6 @@
 SUGESTÕES DE FUNCIONALIDADES PARA O SISTEMA PROFESSORMANAGER
 =======================================================
 
-1. CONTROLE POR PROFESSOR
-   - Atualmente todos veem todas as turmas
-   - Implementar filtro automático baseado no professor logado
-   - Cada professor só vê suas próprias turmas/alunos
 
 2. QUADRO DE AVISOS / MURAL
    - Professores postam avisos para turmas específicas

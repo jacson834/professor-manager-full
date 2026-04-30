@@ -107,6 +107,18 @@ const db = new sqlite3.Database(dbPath, (err) => {
         createdAt TEXT NOT NULL
       )`);
 
+      // Tabela de Alertas de Alunos
+      db.run(`CREATE TABLE IF NOT EXISTS alertas_alunos (
+        id TEXT PRIMARY KEY,
+        alunoId TEXT NOT NULL,
+        tipoAlerta TEXT NOT NULL,
+        observacao TEXT,
+        dataRegistro TEXT NOT NULL,
+        dataResolucao TEXT,
+        status TEXT NOT NULL, -- 'ativo' | 'arquivado' | 'reaberto'
+        createdAt TEXT NOT NULL
+      )`);
+
       // Tabela de Eventos da Agenda
       db.run(`CREATE TABLE IF NOT EXISTS eventos (
         id TEXT PRIMARY KEY,
@@ -125,6 +137,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
         password TEXT NOT NULL,
         nome TEXT NOT NULL,
         role TEXT NOT NULL, -- 'admin' ou 'professor'
+        professorId TEXT, -- Vinculo com professor (para usuarios professor)
         createdAt TEXT NOT NULL
       )`);
 
@@ -140,17 +153,17 @@ const db = new sqlite3.Database(dbPath, (err) => {
         }
       });
 
-      // Inserir Professor-1 padrão se não existir
-      db.get(`SELECT id FROM usuarios WHERE username = 'professor1'`, [], (err, row) => {
-        if (!row) {
-          const id = Date.now().toString(36) + Math.random().toString(36).substr(2);
-          const createdAt = new Date().toISOString();
-          db.run(
-            `INSERT INTO usuarios (id, username, password, nome, role, createdAt) VALUES (?, ?, ?, ?, ?, ?)`,
-            [id, 'professor1', '12345678', 'Professor Um', 'professor', createdAt]
-          );
-        }
-      });
+      // Inserir Professor-1 padrão se não existir (comentado para não criar automaticamente)
+      // db.get(`SELECT id FROM usuarios WHERE username = 'professor1'`, [], (err, row) => {
+      //   if (!row) {
+      //     const id = Date.now().toString(36) + Math.random().toString(36).substr(2);
+      //     const createdAt = new Date().toISOString();
+      //     db.run(
+      //       `INSERT INTO usuarios (id, username, password, nome, role, createdAt) VALUES (?, ?, ?, ?, ?, ?)`,
+      //       [id, 'professor1', '12345678', 'Professor Um', 'professor', createdAt]
+      //     );
+      //   }
+      // });
 
       // Sementes de dados para testes (Executadas após a criação das tabelas)
       const seedData = () => {
@@ -191,13 +204,27 @@ const db = new sqlite3.Database(dbPath, (err) => {
                   }
                 });
               });
-              console.log('Sementes de dados aplicadas com sucesso.');
+console.log('Sementes de dados aplicadas com sucesso.');
+            });
+
+            // Vincular usuarios professor aos professores correspondentes
+            db.all(`SELECT id, username FROM usuarios WHERE role = 'professor'`, [], (err, users: any[]) => {
+              if (!err && users) {
+                users.forEach((user) => {
+                  const nomeBusca = user.username.charAt(0).toUpperCase() + user.username.slice(1).toLowerCase();
+                  db.get(`SELECT id FROM professores WHERE nome LIKE ?`, [`${nomeBusca}%`], (err, prof: any) => {
+                    if (prof) {
+                      db.run(`UPDATE usuarios SET professorId = ? WHERE id = ?`, [prof.id, user.id]);
+                    }
+                  });
+                });
+              }
             });
           });
         });
       };
 
-seedData();
+// seedData(); // Comentado para não criar dados de teste automaticamente
 
       console.log('Tabelas verificadas/creadas com sucesso.');
     });
@@ -229,9 +256,43 @@ app.post('/api/login', (req, res) => {
         id: row.id, 
         username: row.username, 
         nome: row.nome, 
-        role: row.role 
+        role: row.role,
+        professorId: row.professorId || null 
       } 
     });
+  });
+});
+
+app.post('/api/admin/migrate-professor-usuario', (req, res) => {
+  db.all(`SELECT id, username FROM usuarios WHERE role = 'professor'`, [], (err, users: any[]) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    
+    let updated = 0;
+    const checkNext = (index: number) => {
+      if (index >= users.length) {
+        res.json({ message: `Atualizados ${updated} usuários`, updated });
+        return;
+      }
+      
+      const user = users[index];
+      const nomeBusca = user.username.toLowerCase();
+      
+      db.get(`SELECT id FROM professores WHERE LOWER(nome) LIKE ?`, [`%${nomeBusca}%`], (err, prof: any) => {
+        if (prof) {
+          db.run(`UPDATE usuarios SET professorId = ? WHERE id = ?`, [prof.id, user.id], (err) => {
+            if (!err) updated++;
+            checkNext(index + 1);
+          });
+        } else {
+          checkNext(index + 1);
+        }
+      });
+    };
+    
+    checkNext(0);
   });
 });
 
@@ -251,14 +312,33 @@ app.post('/api/usuarios', (req, res) => {
     return res.status(400).json({ error: 'Todos os campos são obrigatórios.' });
   }
 
+  const userId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+  const createdAt = new Date().toISOString();
+  
   db.run(
     `INSERT INTO usuarios (id, username, password, nome, role, createdAt) VALUES (?, ?, ?, ?, ?, ?)`,
-    [Date.now().toString(36) + Math.random().toString(36).substr(2), username, password, nome, role, new Date().toISOString()],
+    [userId, username, password, nome, role, createdAt],
     function(err) {
       if (err) {
         res.status(500).json({ error: err.message });
         return;
       }
+      
+      if (role === 'professor') {
+        const professorId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+        db.run(
+          `INSERT INTO professores (id, nome, email, telefone, materia, createdAt) VALUES (?, ?, ?, ?, ?, ?)`,
+          [professorId, nome, `${username}@escola.com`, '', 'Não definida', createdAt],
+          (err) => {
+            if (err) {
+              console.error('Erro ao criar professor:', err);
+            } else {
+              db.run(`UPDATE usuarios SET professorId = ? WHERE id = ?`, [professorId, userId]);
+            }
+          }
+        );
+      }
+      
       res.status(201).json({ success: true });
     }
   );
@@ -384,7 +464,16 @@ app.delete('/api/professores/:id', (req, res) => {
 
 // --- Rotas para Turmas - Ajuste para minPassingGrade
 app.get('/api/turmas', (req, res) => {
-  db.all('SELECT * FROM turmas', [], (err, rows: any[]) => {
+  const { professorId } = req.query;
+  let query = 'SELECT * FROM turmas';
+  let params: any[] = [];
+  
+  if (professorId) {
+    query += ' WHERE professorId = ?';
+    params.push(professorId);
+  }
+  
+  db.all(query, params, (err, rows: any[]) => {
     if (err) {
       res.status(500).json({ error: err.message });
       return;
@@ -489,13 +578,37 @@ app.delete('/api/turmas/:id', (req, res) => {
 
 // --- Rotas para Alunos ---
 app.get('/api/alunos', (req, res) => {
-  db.all('SELECT * FROM alunos', [], (err, rows: any[]) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
-    res.json({ alunos: rows });
-  });
+  const { professorId } = req.query;
+  
+  if (professorId) {
+    db.all('SELECT * FROM turmas WHERE professorId = ?', [professorId], (err, turmas: any[]) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      const turmaIds = turmas.map(t => t.id);
+      if (turmaIds.length === 0) {
+        res.json({ alunos: [] });
+        return;
+      }
+      const placeholders = turmaIds.map(() => '?').join(',');
+      db.all(`SELECT * FROM alunos WHERE turmaId IN (${placeholders})`, turmaIds, (err, rows: any[]) => {
+        if (err) {
+          res.status(500).json({ error: err.message });
+          return;
+        }
+        res.json({ alunos: rows });
+      });
+    });
+  } else {
+    db.all('SELECT * FROM alunos', [], (err, rows: any[]) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      res.json({ alunos: rows });
+    });
+  }
 });
 
 app.get('/api/alunos/turma/:turmaId', (req, res) => {
@@ -975,6 +1088,96 @@ app.delete('/api/feriados/:id', (req, res) => {
   });
 });
 
+app.post('/api/feriados/sync-national', (req, res) => {
+  const { year } = req.body;
+  if (!year) {
+    return res.status(400).json({ error: 'Ano é obrigatório.' });
+  }
+
+  const axios = require('axios');
+  const API_KEY = '6CJsBMxYVtaFJyJkFMhvOXK2vIE0BLkz';
+
+  const translations: Record<string, string> = {
+    "New Year's Day": "Ano Novo",
+    "Carnival": "Carnaval",
+    "Tiradentes Day": "Tiradentes",
+    "Good Friday": "Sexta-feira Santa",
+    "Easter Sunday": "Páscoa",
+    "Labour Day": "Dia do Trabalho",
+    "Labor Day": "Dia do Trabalho",
+    "Corpus Christi": "Corpus Christi",
+    "Independence Day": "Dia da Independência",
+    "Our Lady of the Apparition": "N. S. da Aparição",
+    "Brazilian Air Force Day": "Dia da Força Aérea Brasileira",
+    "Children's Day": "Dia das Crianças",
+    "All Souls' Day": "Finados",
+    "Proclamation of the Republic": "Proclamação da República",
+    "Black Awareness Day": "Dia da Consciência Negra",
+    "National Day of Thanksgiving": "Dia de Ação de Graças",
+    "Christmas Day": "Natal",
+    "Dia de Nossa Senhora da Conceição": "Dia de Nossa Senhora da Conceição"
+  };
+
+  const getTranslation = (name: string): string => {
+    return translations[name] || name;
+  };
+  
+  axios.get(`https://calendarific.com/api/v2/holidays?api_key=${API_KEY}&country=BR&year=${year}&type=national`)
+    .then((response: any) => {
+      const holidays = response.data.response.holidays;
+      
+      if (!holidays || holidays.length === 0) {
+        return res.json({ message: 'Nenhum feriado nacional encontrado para este ano.', added: 0 });
+      }
+
+      // Primeiro, traduzir todos os feriados existentes no banco
+      db.all(`SELECT * FROM feriados`, [], (err, rows: any[]) => {
+        if (!err && rows) {
+          rows.forEach((f: any) => {
+            const translated = getTranslation(f.nome);
+            if (translated !== f.nome) {
+              db.run(`UPDATE feriados SET nome = ? WHERE id = ?`, [translated, f.id]);
+            }
+          });
+        }
+
+        let added = 0;
+        let processed = 0;
+
+      holidays.forEach((h: any) => {
+        const data = h.date.iso;
+        const nomeIngles = h.name;
+        const nome = getTranslation(nomeIngles);
+
+        db.get(`SELECT id FROM feriados WHERE data = ?`, [data], (err, row: any) => {
+          if (err || row) {
+            processed++;
+            if (processed === holidays.length) {
+              res.json({ message: `${added} feriados nacionais de ${year} foram sincronizados.`, added });
+            }
+            return;
+          }
+
+          const id = Date.now().toString(36) + Math.random().toString(36).substr(2) + Math.random().toString(36).substr(2);
+          const createdAt = new Date().toISOString();
+          
+          db.run(`INSERT INTO feriados (id, data, nome, createdAt) VALUES (?, ?, ?, ?)`, [id, data, nome, createdAt], (err) => {
+            if (!err) added++;
+            processed++;
+            if (processed === holidays.length) {
+              res.json({ message: `${added} feriados nacionais de ${year} foram sincronizados.`, added });
+            }
+          });
+        });
+        });
+      });
+    })
+    .catch((error: any) => {
+      console.error('Erro ao buscar feriados:', error.message);
+      res.status(500).json({ error: 'Falha ao buscar feriados da API externa.' });
+    });
+});
+
 // --- Rotas para Eventos ---
 app.get('/api/eventos', (req, res) => {
   db.all('SELECT * FROM eventos', [], (err, rows: any[]) => {
@@ -1124,7 +1327,7 @@ app.post('/api/admin/clear-all-data', (req, res) => {
 
   db.serialize(() => {
     const tablesToClear = [
-      'presencas', 'notas', 'planejamentos', 'eventos', 'feriados', 'alertas_alunos', 'alunos', 'turmas', 'professores'
+      'presencas', 'notas', 'planejamentos', 'eventos', 'feriados', 'alertas_alunos', 'alunos', 'turmas', 'professores', 'usuarios'
     ];
 
     let errors: string[] = [];
@@ -1152,7 +1355,10 @@ app.post('/api/admin/clear-all-data', (req, res) => {
               if (errors.length > 0) {
                 res.status(500).json({ success: false, message: 'Erro ao limpar dados de algumas tabelas.', errors });
               } else {
-                res.json({ success: true, message: 'Todos os dados foram limpos com sucesso!' });
+                const adminId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+                db.run(`INSERT INTO usuarios (id, username, password, nome, role, createdAt) VALUES (?, ?, ?, ?, ?, ?)`,
+                  [adminId, 'admin', '12345678', 'Administrador', 'admin', new Date().toISOString()]);
+                res.json({ success: true, message: 'Todos os dados foram limpos com sucesso! Recrie o banco se necessário.' });
               }
             });
           }
@@ -1288,7 +1494,78 @@ app.post('/api/settings', (req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Servidor backend rodando em http://0.0.0.0:${PORT}`);
+});
+
+// --- Rota para Gerar Dados de Teste ---
+app.post('/api/admin/generate-test-data', (req, res) => {
+  const { turmaId, quantidadeAlunos, diasPresenca } = req.body;
+  
+  if (!turmaId) {
+    return res.status(400).json({ error: 'ID da turma é obrigatório.' });
+  }
+  
+  const numAlunos = quantidadeAlunos || 20;
+  const numDias = diasPresenca || 20;
+  
+  const nomes = [
+    'Ana', 'Bruno', 'Carla', 'Daniel', 'Eduarda', 'Felipe', 'Giovanna', 'Henrique', 'Isabela', 'João',
+    'Karine', 'Lucas', 'Mariana', 'Nicolas', 'Olivia', 'Paulo', 'Queila', 'Rafael', 'Sofia', 'Thiago',
+    'Ursula', 'Vinícius', 'Wagner', 'Xavier', 'Yasmin', 'Zara', 'André', 'Bianca', 'Caio', 'Débora'
+  ];
+  
+  const sobrenomes = [
+    'Silva', 'Santos', 'Oliveira', 'Souza', 'Rodrigues', 'Ferreira', 'Alves', 'Pereira', 'Lima', 'Gomes',
+    'Costa', 'Ribeiro', 'Martins', 'Carvalho', 'Torres', 'Andrade', 'Cardoso', 'Herrera', 'Melo', 'Barbosa'
+  ];
+  
+  const randomItem = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
+  
+  const createdAt = new Date().toISOString();
+  const alunoIds: string[] = [];
+  
+  db.serialize(() => {
+    for (let i = 0; i < numAlunos; i++) {
+      const nome = `${randomItem(nomes)} ${randomItem(sobrenomes)}`;
+      const matricula = `2024${String(i + 1).padStart(3, '0')}`;
+      const id = Date.now().toString(36) + Math.random().toString(36).substr(2) + i;
+      alunoIds.push(id);
+      
+      db.run(
+        `INSERT INTO alunos (id, nome, matricula, turmaId, email, telefone, dataNascimento, responsavel, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, nome, matricula, turmaId, `${matricula}@escola.com`, '', '2010-01-01', 'Responsável', createdAt]
+      );
+    }
+    
+    const today = new Date();
+    let presencasCriadas = 0;
+    
+    for (let d = 1; d <= numDias; d++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - d);
+      
+      if (date.getDay() === 0 || date.getDay() === 6) continue;
+      
+      const dataStr = date.toISOString().split('T')[0];
+      
+      alunoIds.forEach((alunoId) => {
+        const presente = Math.random() < 0.85 ? 1 : 0;
+        const id = Date.now().toString(36) + Math.random().toString(36).substr(2) + Math.random();
+        
+        db.run(
+          `INSERT INTO presencas (id, alunoId, turmaId, data, presente, observacao, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [id, alunoId, turmaId, dataStr, presente, null, createdAt]
+        );
+        presencasCriadas++;
+      });
+    }
+    
+    res.json({ 
+      message: `Criados ${numAlunos} alunos e ${presencasCriadas} presenças!`, 
+      alunos: numAlunos, 
+      presencas: presencasCriadas 
+    });
   });
+});
 
 process.on('SIGINT', () => {
   db.close((err) => {

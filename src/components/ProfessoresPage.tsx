@@ -85,8 +85,7 @@ export default function ProfessoresPage() {
       }
       
       await loadProfessores();
-      resetForm();
-      setIsDialogOpen(false);
+      closeDialog();
     } catch (error: any) {
       console.error("Erro ao salvar professor:", error);
       let errorMessage = "Erro ao salvar professor.";
@@ -153,6 +152,11 @@ export default function ProfessoresPage() {
     setEditingProfessor(null);
   };
 
+  const closeDialog = () => {
+    setIsDialogOpen(false);
+    resetForm();
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -160,9 +164,14 @@ export default function ProfessoresPage() {
           <h1 className="text-3xl font-bold text-foreground">Professores</h1>
           <p className="text-muted-foreground">Gerencie o cadastro de professores</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            if (!open) {
+              setIsDialogOpen(false);
+              resetForm();
+            }
+          }}>
           <DialogTrigger asChild>
-            <Button onClick={resetForm} className="bg-primary hover:bg-primary-hover">
+            <Button onClick={() => { resetForm(); setIsDialogOpen(true); }} className="bg-primary hover:bg-primary-hover">
               <Plus size={16} className="mr-2" />
               Novo Professor
             </Button>

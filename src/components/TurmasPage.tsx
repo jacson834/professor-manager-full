@@ -15,8 +15,11 @@ import {
 import { Plus, Edit, Trash2, Users, GraduationCap, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import axios from 'axios';
 
 export default function TurmasPage() {
+  const { user } = useAuth();
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [professores, setProfessores] = useState<Professor[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -34,11 +37,12 @@ export default function TurmasPage() {
   useEffect(() => {
     loadTurmas();
     loadProfessores();
-  }, []);
+  }, [user]);
 
   const loadTurmas = async () => {
     try {
-      const data = await turmasApi.getTurmas();
+      const professorId = user?.role === 'professor' ? user.professorId : undefined;
+      const data = await turmasApi.getTurmas(professorId);
       setTurmas(data);
     } catch (error) {
       console.error("Erro ao carregar turmas:", error);
@@ -128,6 +132,32 @@ export default function TurmasPage() {
       minPassingGrade: turma.minPassingGrade !== undefined && turma.minPassingGrade !== null ? turma.minPassingGrade : 6.0
     });
     setIsDialogOpen(true);
+  };
+
+  const generateTestData = async (turmaId: string) => {
+    if (!window.confirm('Gerar dados de teste (20 alunos + presenças aleatórias)?')) return;
+    
+    try {
+      const response = await axios.post('/api/admin/generate-test-data', {
+        turmaId,
+        quantidadeAlunos: 20,
+        diasPresenca: 30
+      });
+      
+      toast({
+        title: "Sucesso",
+        description: response.data.message,
+      });
+      
+      loadTurmas();
+      loadAlunos();
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.response?.data?.error || "Falha ao gerar dados de teste.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -337,6 +367,15 @@ export default function TurmasPage() {
                       className="text-muted-foreground hover:text-primary"
                     >
                       <Edit size={16} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => generateTestData(turma.id)}
+                      className="text-muted-foreground hover:text-success"
+                      title="Gerar dados de teste"
+                    >
+                      <Users size={16} />
                     </Button>
                     <Button
                       variant="ghost"

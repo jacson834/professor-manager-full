@@ -34,6 +34,7 @@ import {
   Info
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Interfaces existentes
 interface AlunoRisco {
@@ -72,6 +73,7 @@ interface AlertaAlunoHistorico extends AlertaAluno {
 
 
 export default function AnalysesPage() {
+  const { user } = useAuth();
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [allAlunos, setAllAlunos] = useState<Aluno[]>([]);
   const [allNotas, setAllNotas] = useState<Nota[]>([]);
@@ -292,9 +294,10 @@ export default function AnalysesPage() {
   const loadAllData = useCallback(async () => {
     setLoadingData(true);
     try {
+      const professorId = user?.role === 'professor' ? user.professorId : undefined;
       const [turmasData, alunosData, notasData, presencasData, alertasData] = await Promise.all([
-        turmasApi.getTurmas(),
-        alunosApi.getAlunos(),
+        turmasApi.getTurmas(professorId),
+        alunosApi.getAlunos(professorId),
         notasApi.getNotas(),
         presencasApi.getPresencas(),
         alertasAlunosApi.getAlerts(),

@@ -22,8 +22,10 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [stats, setStats] = useState({
     totalProfessores: 0,
     totalTurmas: 0,
@@ -39,10 +41,11 @@ export default function Dashboard() {
 
   const loadStats = useCallback(async () => {
     try {
+      const professorId = user?.role === 'professor' ? user.professorId : undefined;
       const [professores, turmas, alunos, presencas, notas] = await Promise.all([
         professoresApi.getProfessores(),
-        turmasApi.getTurmas(),
-        alunosApi.getAlunos(),
+        turmasApi.getTurmas(professorId),
+        alunosApi.getAlunos(professorId),
         presencasApi.getPresencas(),
         notasApi.getNotas()
       ]);
@@ -71,11 +74,12 @@ export default function Dashboard() {
 
   const loadRecentActivities = useCallback(async () => {
     try {
+      const professorId = user?.role === 'professor' ? user.professorId : undefined;
       const [allNotas, allPresencas, allAlunos, allTurmas] = await Promise.all([
         notasApi.getNotas(),
         presencasApi.getPresencas(),
-        alunosApi.getAlunos(),
-        turmasApi.getTurmas()
+        alunosApi.getAlunos(professorId),
+        turmasApi.getTurmas(professorId)
       ]);
 
       const latestNotas = allNotas.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
@@ -120,20 +124,16 @@ export default function Dashboard() {
   const loadUpcomingEvents = useCallback(async () => {
     try {
       const allEvents = await eventosApi.getEventos();
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const today = new Date().toISOString().split('T')[0];
 
-      const futureEvents = allEvents.filter(event => {
-        const eventDate = new Date(event.data);
-        eventDate.setHours(0, 0, 0, 0);
-        return eventDate.getTime() >= today.getTime();
-      })
-      .sort((a, b) => {
-        const dateTimeA = new Date(`${a.data}T${a.horario}`).getTime();
-        const dateTimeB = new Date(`${b.data}T${b.horario}`).getTime();
-        return dateTimeA - dateTimeB;
-      })
-      .slice(0, 5);
+      const futureEvents = allEvents
+        .filter(event => event.data >= today)
+        .sort((a, b) => {
+          const dateTimeA = new Date(`${a.data}T${a.horario}`).getTime();
+          const dateTimeB = new Date(`${b.data}T${b.horario}`).getTime();
+          return dateTimeA - dateTimeB;
+        })
+        .slice(0, 5);
 
       setUpcomingEvents(futureEvents);
     } catch (error) {
@@ -153,13 +153,13 @@ export default function Dashboard() {
   }, [loadStats, loadRecentActivities, loadUpcomingEvents]);
 
   const statsCards = [
-    {
+    ...(user?.role === 'admin' ? [{
       title: 'Total de Professores',
       value: stats.totalProfessores,
       icon: GraduationCap,
       color: 'text-primary',
       bgColor: 'bg-primary/10'
-    },
+    }] : []),
     {
       title: 'Total de Turmas',
       value: stats.totalTurmas,
@@ -251,7 +251,7 @@ export default function Dashboard() {
                     <p className="font-medium text-foreground">{event.title}</p>
                     <p className="text-sm text-muted-foreground flex items-center gap-2">
                       <Calendar size={14} />
-                      <span>{format(new Date(event.date + 'T00:00:00'), 'dd/MM/yyyy', { locale: ptBR })}</span>
+                      <span>{format(new Date(event.data + 'T00:00:00'), 'dd/MM/yyyy', { locale: ptBR })}</span>
                       <Clock size={14} />
                       <span>{event.horario}</span>
                     </p>

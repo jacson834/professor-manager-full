@@ -1,208 +1,214 @@
 # Histórico de Trabalho - ProfessorManager
 
-## Data: 29/04/2026
+## Data: 30/04/2026
 
 ---
 
-## O QUE FOI FEITO HOJE
+## O QUE FOI FEITO RECENTEMENTE
 
-### 1. Correção de Erro no Backend (TypeScript)
+### 1. Correção de Erro de CORS
 
-**Problema:** Servidor não iniciava - erro TS1128 em server.ts (linhas 253-255)
-
-**Causa:** Código duplicado malformado dentro do bloco `db.serialize()` - havia um segundo bloco `db.serialize()` para seed de dados duplicado e malfechado
-
-**Solução:** Removido o código duplicado das linhas 203-255
-
----
-
-### 2. Criação de Dados de Teste
-
-#### Turma "8 a Vespertino"
-- Professora Maria (Português)
-- 10 alunos: Lucas Almeida, Mariana Rodrigues, Pedro Henrique, Julia Ferreira, Gabriel Silva, Sofia Costa, João Pedro, Isabella Santos, Diego Lima, Olivia Oliveira
-
-#### Dados de Presença e Notas
-- Inseridas 143 notas (3 avaliações por aluno)
-- Inseridas 110 presenças (5 dias por aluno)
-- Later filled with 484 random attendances for April 2024
-
----
-
-### 3. Correção no AlunosPage (CSS)
-
-**Problema:** Botão de excluir saía do card quando nome do aluno era longo
-
-**Solução:** Adicionados classes CSS:
-- `overflow-hidden` no container pai
-- `truncate` no nome do aluno
-- `flex-wrap` nos badges
-- `shrink-0` nos botões
-
----
-
-### 4. Correção no AnalysesPage (API)
-
-**Problema:** Erro "Falha ao carregar dados para análises"
-
-**Causa:** O código tentava acessar `alertasApiResponse.alertas`, mas `alertasAlunosApi.getAlerts()` já retorna o array diretamente (não um objeto wrapper)
-
-**Solução:** Corrigido para usar `alertasData` diretamente:
-```typescript
-// Antes (errado):
-const allAlertsFromApi = alertasApiResponse.alertas;
-
-// Depois (correto):
-const mappedAlerts = alertasData.map((alert: AlertaAluno) => {...});
-```
-
----
-
-### 5. Funcionalidade de Visualização Mensal de Presenças
-
-**Implementado:** Two visualization modes in PresencaPage:
-- **Modo Diário**: mesmo de antes - registrar presenças do dia
-- **Modo Mensal**: visualizar todo o mês em tabela
-
-**Problema encontrado:** Dados não apareciam
-
-**Causa:** new Date("2024-04-01") era interpretado como UTC, causando diferença de fuso horário (-3 horas no Brasil)
-
-**Solução:** Usar comparação direta de strings:
-```typescript
-// Antes (com problema de fuso horário):
-const data = new Date(p.data);
-return data.getFullYear() === parseInt(ano) && (data.getMonth() + 1) === parseInt(mes);
-
-// Depois (comparação por string):
-const mesStr = `${ano}-${String(mes).padStart(2, '0')}`;
-const presencasDoMes = allPresencas.filter(p => p.data.startsWith(mesStr));
-```
-
----
-
-### 6. Restrição de Rotas para Admin
-
-**Problema:** Admin podia ver/acessar Presença, Agenda Pessoal e Planejamento
+**Problema:** Erro "Requisição cross-origin bloqueada" ao fazer login
 
 **Solução:** 
-1. No Layout.tsx - oculto do menu para admin:
-```typescript
-if (item.path === '/presenca' || item.path === '/agenda' || item.path === '/planejamento') {
-  return user?.role === 'professor';
-}
-```
-
-2. No App.tsx - ProtectedRoute:
-```typescript
-<Route path="presenca" element={
-  <ProtectedRoute roleRequired="professor">
-    <PresencaPage />
-  </ProtectedRoute>
-} />
-```
+- Adicionado proxy no Vite (vite.config.ts) para redirecionar /api para backend
+- Alteradas todas as URLs hardcoded (10.1.1.19:3000) para URLs relativas (/api)
+- Arquivos atualizados: database.ts, AuthContext.tsx, UsuariosPage.tsx, ConfiguracoesPage.tsx
 
 ---
 
-### 7. Criação de Professores, Turmas e Alunos
+### 2. CONTROLE POR PROFESSOR
 
-Criados 5 novos professores com usuários e turmas:
-| Professor | Usuário | Matéria | Turma | Alunos |
-|-----------|--------|--------|-------|-------|
-| Carlos | carlos | História | 6 a Matutino | 15 |
-| Juliana | juliana | Geografia | 7 a Matutino | 15 |
-| Roberto | roberto | Ciências | 6 a Vespertino | 15 |
-| Aline | aline | Ed. Física | 7 a Vespertino | 15 |
-| Lucas | lucas | Artes | 5 a Matutino | 15 |
+**Implementação:** Cada professor agora vê apenas suas próprias turmas e alunos
 
-**Total:** 5 professores, 5 turmas, 75 alunos
+**Alterações no Backend:**
+- Adicionada coluna `professorId` na tabela usuarios
+- Modificado endpoint `/api/turmas` para aceitar filtro `professorId`
+- Modificado endpoint `/api/alunos` para filtrar por turmas do professor
+- Modificado endpoint `/api/login` para retornar professorId no objeto user
 
----
-
-### 8. Criação de Dados de Abril 2026
-
-Inseridas 484 presenças aleatórias para abril/2026 (~85% de presença, excluindo fins de semana)
+**Alterações no Frontend:**
+- useAuth agora armazena professorId
+- turmasApi.getTurmas() e getAlunos() aceitam parâmetro opcional professorId
+- Páginas atualizadas: Dashboard, TurmasPage, AlunosPage, PresencaPage, PlanejamentoPage, AnalysesPage, GlobalSearch, RelatoriosPage
+- Dashboard oculta card "Total de Professores" para professores
 
 ---
 
-### 9. Commit e Push para GitHub
+### 3. Criação de Usuário + Professor Automático
 
-**Repositório:** https://github.com/jacson834/professor-manager-full
+**Problema:** Usuários professor não apareciam na lista de professores
 
-**Arquivos commitados:** 133 arquivos (exceto node_modules)
-
-**Aviso:** Arquivo ProfessorManager-main.Versao-0.3.zip (77MB) está no repositório - maior que o limite do GitHub (50MB)
-
----
-
-## ARQUIVOS CRIADOS/EDITADOS HOJE
-
-- `README.md` - Documentação do projeto
-- `SUGESTOES.txt` - 15 sugestões de funcionalidades futuras
+**Solução:** Ao criar usuário com role=professor, automaticamente:
+- Cria registro na tabela professores
+- Vincula professorId ao usuário
 
 ---
 
-## ESTADO ATUAL DO BANCO DE DADOS
+### 4. Limpar Todos os Dados + Recriar Admin
 
-- Professores: vários (incluindo Professor Teste e Professora Maria)
-- Turmas: 7 (9 a Matutino, 8 a Vespertino + 5 novas)
-- Alunos: ~97 (20 da 9 a Matutino + 10 da 8 a Vespertino + 75 novos)
-- Notas: 143
-- Presenças: 594+ (110 de maio + 484 de abril/2026)
-- Usuários: admin, professor1, carlos, juliana, roberto, aline, lucas
+**Problema:** Função não limpava usuários e não recriava admin
 
----
-
-## USUARIOS DO SISTEMA
-
-| Login | Senha | Role |
-|-------|------|------|
-| admin | 12345678 | admin |
-| professor1 | 12345678 | professor |
-| professor | 12345678 | professor |
-| carlos | 12345678 | professor |
-| juliana | 12345678 | professor |
-| roberto | 12345678 | professor |
-| aline | 12345678 | professor |
-| lucas | 12345678 | professor |
+**Solução:** 
+- Adicionada tabela 'usuarios' à lista de limpeza
+- Após limpar, recria usuário admin automaticamente
 
 ---
 
-## CONFIGURAÇÃO DE REDE
+### 5. Remoção de Seed de Dados Automático
 
-- Backend: http://10.1.1.19:3000
-- Frontend: http://10.1.1.19:8080
+**Problema:** Ao criar banco novo, dados de teste eram inseridos automaticamente
 
----
-
-## PROBLEMAS/conversãoA RESOLVER (Futuro)
-
-1. Arquivo ZIP muito grande no GitHub - remover
-2. Cada professor ver apenas suas turmas (ainda não implementado)
-3. .local de dados (não versionado)
+**Solução:** Comentado código de seed (criação de professor1, Professor Teste, etc.)
 
 ---
 
-## Próximos Passos Sugeridos (do arquivo SUGESTOES.txt)
+### 6. Sincronização de Feriados Nacionais
 
-1. CONTROLE POR PROFESSOR - Cada professor só vê suas turmas
-2. QUADRO DE AVISOS / MURAL
-3. BOLETIM INDIVIDUAL POR ALUNO
-4. BACKUP/RESTORE MANUAL
-5. DASHBOARD ANALYTICS
-6. UPLOAD DE PRESENÇA EM MASSA
-7. COMUNICAÇÃO COM PAIS
-8. FERIADOS ESCOLARES (página de gestão)
+**Implementado:**
+- Endpoint backend `/api/feriados/sync-national` para buscar da API Calendarific
+- Tradução automática dos nomes para português
+- Tradução também de feriados existentes no banco
 
 ---
 
-## Como Continuar Amanhã
+### 7. Visualização de Presença Mensal
 
-1. Iniciar backend: `cd backend && npm start`
-2. Iniciar frontend: `npm run dev`
-3. Fazer login com admin ou professor
-4. Continuar das sugestões em SUGESTOES.txt
+**Melhorias:**
+- Adicionadas bordas de separação entre dias na tabela
+- Exportação PDF em modo paisagem
+- Carregamento automático de presenças ao selecionar mês
 
 ---
 
-*Atualizado em: 29/04/2026*
+### 8. Botões P/F para Presença
+
+**Implementação:** Substituído Checkbox por botões:
+- P (Presente) - verde quando selecionado
+- F (Falta) - vermelho quando selecionado
+
+---
+
+### 9. Geração de Dados de Teste
+
+**Implementado:**
+- Botão na página Turmas (ícone de usuário) para gerar dados de teste
+- Endpoint `/api/admin/generate-test-data`
+- Cria 20 alunos com nomes aleatórios
+- Gera presenças aleatórias dos últimos 30 dias (85% presença)
+
+---
+
+### 10. Orientação Paisagem nos PDFs
+
+**Implementado:** 
+- Relatório de Presenças (Modo Mensal)
+- Relatório Individual de Aluno
+- Relatório de Turma
+
+Todos com `@page { size: landscape; }`
+
+---
+
+### 11. Correção de Layout
+
+**Problema:** Título da página muito próximo ao sidebar
+
+**Solução:** Ajustado padding do header (`pl-14 md:pl-6`)
+
+---
+
+### 12. Criação de Tabela de Alertas
+
+**Problema:** Erro 500 ao acessar página de Análises
+
+**Solução:** Adicionada criação da tabela `alertas_alunos` no banco
+
+---
+
+## ARQUIVOS MODIFICADOS
+
+### Backend (server.ts)
+- Adicionada coluna professorId na tabela usuarios
+- Modificadas rotas de turmas/alunos para filtro por professor
+- Adicionada rota sync-national para feriados
+- Adicionada rota generate-test-data
+- Adicionada tabela alertas_alunos
+- Removido seed automático de dados
+
+### Frontend
+- vite.config.ts - proxy para API
+- database.ts - URLs relativas
+- AuthContext.tsx - armazena professorId
+- TurmasPage.tsx - botão gerar dados de teste
+- PresencaPage.tsx - botões P/F, bordas, PDF paisagem
+- RelatoriosPage.tsx - orientação paisagem
+- Layout.tsx - ajuste de padding
+
+---
+
+## ESTADO ATUAL DO BANCO
+
+**Tabelas:**
+- professores
+- turmas
+- alunos
+- presencas
+- notas
+- planejamentos
+- feriados
+- eventos
+- alertas_alunos
+- usuarios
+- settings
+
+**Funcionalidades ativadas:**
+- Controle por professor (cada professor vê apenas suas turmas)
+- Sincronização automática de feriados nacionais
+- Botões P/F para presença
+- Exportação PDF paisagem
+- Geração de dados de teste
+
+---
+
+## COMO USAR
+
+### Primeiro Acesso
+1. Login com admin / 12345678
+2. Criar professor na página Professores
+3. Criar usuário professor com username igual ao nome do professor
+4. O sistema vincula automaticamente
+
+### Gerar Dados de Teste
+1. Ir para Turmas
+2. Clicar no ícone de usuário (entre editar e excluir)
+3. Confirmar - cria 20 alunos + presenças aleatórias
+
+### Controle de Presença
+1. Selecionar turma
+2. Modo Diário: usar botões P/F
+3. Modo Mensal: visualizar mês completo
+4. Baixar PDF do mês
+
+---
+
+## PRÓXIMAS MELHORIAS SUGERIDAS
+
+1. Controle de acesso por professor aos dados de presença
+2. Quadro de avisos / mural
+3. Boletim individual por aluno
+4. Upload de presença em massa
+5. Comunicação com pais
+6. Feriados escolares (página de gestão)
+7. Dashboard analytics mais completo
+
+---
+
+## Configuração de Rede Atual
+
+- Backend: http://10.83.0.40:3000
+- Frontend: http://10.83.0.40:8080
+
+---
+
+*Atualizado em: 30/04/2026*

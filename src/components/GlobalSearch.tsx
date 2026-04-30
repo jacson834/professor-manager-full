@@ -12,6 +12,7 @@ import {
   presencasApi // Adicionar presencasApi
 } from '@/lib/database';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SearchResult {
   id: string;
@@ -27,6 +28,7 @@ interface GlobalSearchProps {
 }
 
 export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
+  const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -51,11 +53,12 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
     const lowerQuery = searchQuery.toLowerCase();
 
     try {
+      const professorId = user?.role === 'professor' ? user.professorId : undefined;
       // Buscar todos os dados de forma assíncrona
       const [professores, turmas, alunos, notas, presencas] = await Promise.all([ // Adicionado presencas aqui
         professoresApi.getProfessores(),
-        turmasApi.getTurmas(),
-        alunosApi.getAlunos(),
+        turmasApi.getTurmas(professorId),
+        alunosApi.getAlunos(professorId),
         notasApi.getNotas(),
         presencasApi.getPresencas(), // API Assíncrona
       ]);

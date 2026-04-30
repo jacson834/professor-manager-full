@@ -94,10 +94,10 @@ export default function Layout() {
                 key={item.id}
                 to={item.path}
                 onClick={() => isMobile && setSidebarOpen(false)}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
+                className={`w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors ${
                   isActive 
-                    ? "bg-primary text-primary-foreground shadow-sm" 
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    ? "bg-muted/80 text-foreground border-l-2 border-primary" 
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50 border-l-2 border-transparent"
                 }`}
               >
                 <Icon size={20} />
@@ -142,10 +142,10 @@ export default function Layout() {
       {/* Main content */}
       <main className="flex-1 flex flex-col min-h-screen md:ml-64">
         {/* Header fixo */}
-        <header className="bg-gradient-primary shadow-elegant sticky top-0 z-40 flex-shrink-0">
+        <header className="bg-card border-b border-border sticky top-0 z-40 flex-shrink-0">
           <div className="px-4 md:px-6 py-4 pl-14 md:pl-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-primary-foreground truncate">
+              <h2 className="text-xl font-semibold text-foreground truncate">
                 {currentPageLabel}
               </h2>
               
@@ -158,12 +158,10 @@ export default function Layout() {
         </header>
 
         {/* Content area */}
-        <div className="flex-1 p-4 md:p-6">
-          <Card className="bg-card shadow-card border-border h-full">
-            <div className="p-4 md:p-6 h-full overflow-x-auto">
-              <Outlet />
-            </div>
-          </Card>
+        <div className="flex-1 p-4 md:p-6 bg-background">
+          <div className="h-full overflow-x-auto">
+            <Outlet />
+          </div>
         </div>
       </main>
 

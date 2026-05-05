@@ -81,7 +81,7 @@ export default function Layout() {
             if (item.path === '/configuracoes' || item.path === '/usuarios' || item.path === '/professores') {
               return user?.role === 'admin';
             }
-            if (item.path === '/presenca' || item.path === '/agenda' || item.path === '/planejamento') {
+            if (item.path === '/presenca' || item.path === '/agenda' || item.path === '/planejamento' || item.path === '/analises' || item.path === '/relatorios') {
               return user?.role === 'professor';
             }
             return true;
@@ -150,7 +150,7 @@ export default function Layout() {
               </h2>
               
               <div className="flex items-center space-x-3">
-                <HeaderNotifications />
+                {user?.role === 'professor' && <HeaderNotifications />}
                 <ThemeToggle />
               </div>
             </div>

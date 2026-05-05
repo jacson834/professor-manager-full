@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -58,6 +58,8 @@ export default function RelatoriosPage() {
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState(initialTurmaIdFromState ? 'turma' : 'individual');
+  const [turmaReportPage, setTurmaReportPage] = useState(1);
+  const turmaReportPageSize = 25;
 
   useEffect(() => {
     const loadAllInitialData = async () => {
@@ -110,6 +112,21 @@ export default function RelatoriosPage() {
       setRelatorioTurmaData(null);
     }
   }, [selectedTurma, allAlunos, initialTurmaIdFromState]);
+
+  useEffect(() => {
+    setTurmaReportPage(1);
+  }, [selectedTurma, relatorioTurmaData]);
+
+  const paginatedTurmaAlunos = useMemo(() => {
+    if (!relatorioTurmaData) return [];
+    const sorted = [...relatorioTurmaData.alunos].sort((a, b) => a.aluno.nome.localeCompare(b.aluno.nome));
+    const start = (turmaReportPage - 1) * turmaReportPageSize;
+    return sorted.slice(start, start + turmaReportPageSize);
+  }, [relatorioTurmaData, turmaReportPage]);
+
+  const totalTurmaReportPages = relatorioTurmaData
+    ? Math.max(1, Math.ceil(relatorioTurmaData.alunos.length / turmaReportPageSize))
+    : 1;
 
   useEffect(() => {
     if (selectedAluno && !loadingData) {
@@ -807,9 +824,7 @@ export default function RelatoriosPage() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {relatorioTurmaData.alunos
-                                        .sort((a, b) => a.aluno.nome.localeCompare(b.aluno.nome))
-                                        .map((rel) => (
+                                    {paginatedTurmaAlunos.map((rel) => (
                                             <tr key={rel.aluno.id} className="border-b border-border hover:bg-muted/30">
                                                 <td className="px-4 py-2 text-sm">{rel.aluno.nome}</td>
                                                 <td className="px-4 py-2 text-sm">{rel.aluno.matricula}</td>
@@ -823,6 +838,31 @@ export default function RelatoriosPage() {
                                         ))}
                                 </tbody>
                             </table>
+                            {relatorioTurmaData.alunos.length > turmaReportPageSize && (
+                              <div className="flex items-center justify-between pt-4">
+                                <p className="text-sm text-muted-foreground">
+                                  Página {turmaReportPage} de {totalTurmaReportPages} ({relatorioTurmaData.alunos.length} alunos)
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={turmaReportPage <= 1}
+                                    onClick={() => setTurmaReportPage((p) => Math.max(1, p - 1))}
+                                  >
+                                    Anterior
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={turmaReportPage >= totalTurmaReportPages}
+                                    onClick={() => setTurmaReportPage((p) => Math.min(totalTurmaReportPages, p + 1))}
+                                  >
+                                    Próxima
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
                         </div>
                     ) : (
                         <p className="text-muted-foreground text-center py-4">Nenhum aluno com dados na turma selecionada.</p>

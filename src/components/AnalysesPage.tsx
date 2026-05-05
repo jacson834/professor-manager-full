@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -6,6 +6,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useNavigate } from 'react-router-dom';
@@ -86,10 +96,17 @@ export default function AnalysesPage() {
   const [rankingAlunos, setRankingAlunos] = useState<RankingAluno[]>([]);
   const [rankingTurmas, setRankingTurmas] = useState<RankingTurma[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [riskPage, setRiskPage] = useState(1);
+  const [rankingAlunosPage, setRankingAlunosPage] = useState(1);
+  const [rankingTurmasPage, setRankingTurmasPage] = useState(1);
+  const [historicoPage, setHistoricoPage] = useState(1);
+  const pageSize = 10;
 
   const [isObservationDialogOpen, setIsObservationDialogOpen] = useState(false);
   const [selectedAlertProblem, setSelectedAlertProblem] = useState<{ aluno: Aluno; turma: Turma; problema: string; nivelRisco: string; } | null>(null);
   const [observationText, setObservationText] = useState('');
+  const [isReopenDialogOpen, setIsReopenDialogOpen] = useState(false);
+  const [alertToReopen, setAlertToReopen] = useState<AlertaAlunoHistorico | null>(null);
   
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -226,7 +243,7 @@ export default function AnalysesPage() {
       item.posicao = index + 1;
     });
 
-    setRankingAlunos(rankingAlunosData.slice(0, 20));
+    setRankingAlunos(rankingAlunosData);
 
     const rankingTurmasData: RankingTurma[] = [];
 
@@ -447,9 +464,6 @@ export default function AnalysesPage() {
   };
 
   const handleReopenAlert = async (alertaHistorico: AlertaAlunoHistorico) => {
-    if (!window.confirm(`Tem certeza que deseja reabrir o alerta para ${alertaHistorico.aluno?.nome} (${alertaHistorico.tipoAlerta})? Ele reaparecerá em "Alunos em Risco".`)) {
-      return;
-    }
     setLoadingData(true);
     try {
       await alertasAlunosApi.addAlert({
@@ -474,7 +488,14 @@ export default function AnalysesPage() {
       });
     } finally {
       setLoadingData(false);
+      setIsReopenDialogOpen(false);
+      setAlertToReopen(null);
     }
+  };
+
+  const openReopenDialog = (alertaHistorico: AlertaAlunoHistorico) => {
+    setAlertToReopen(alertaHistorico);
+    setIsReopenDialogOpen(true);
   };
 
   const isProblemObservedRecently = useCallback((alunoId: string, problemaText: string): boolean => {
@@ -489,6 +510,47 @@ export default function AnalysesPage() {
     }
     return false;
   }, [archivedAlerts]);
+
+  useEffect(() => {
+    setRiskPage(1);
+  }, [activeAlerts, selectedTurma]);
+
+  useEffect(() => {
+    setRankingAlunosPage(1);
+  }, [rankingAlunos, selectedTurma]);
+
+  useEffect(() => {
+    setRankingTurmasPage(1);
+  }, [rankingTurmas, selectedTurma]);
+
+  useEffect(() => {
+    setHistoricoPage(1);
+  }, [archivedAlerts, selectedTurma]);
+
+  const paginatedActiveAlerts = useMemo(() => {
+    const start = (riskPage - 1) * pageSize;
+    return activeAlerts.slice(start, start + pageSize);
+  }, [activeAlerts, riskPage]);
+
+  const paginatedRankingAlunos = useMemo(() => {
+    const start = (rankingAlunosPage - 1) * pageSize;
+    return rankingAlunos.slice(start, start + pageSize);
+  }, [rankingAlunos, rankingAlunosPage]);
+
+  const paginatedRankingTurmas = useMemo(() => {
+    const start = (rankingTurmasPage - 1) * pageSize;
+    return rankingTurmas.slice(start, start + pageSize);
+  }, [rankingTurmas, rankingTurmasPage]);
+
+  const paginatedHistorico = useMemo(() => {
+    const start = (historicoPage - 1) * pageSize;
+    return archivedAlerts.slice(start, start + pageSize);
+  }, [archivedAlerts, historicoPage]);
+
+  const riskTotalPages = Math.max(1, Math.ceil(activeAlerts.length / pageSize));
+  const rankingAlunosTotalPages = Math.max(1, Math.ceil(rankingAlunos.length / pageSize));
+  const rankingTurmasTotalPages = Math.max(1, Math.ceil(rankingTurmas.length / pageSize));
+  const historicoTotalPages = Math.max(1, Math.ceil(archivedAlerts.length / pageSize));
 
 
   return (
@@ -561,7 +623,7 @@ export default function AnalysesPage() {
                       </AlertDescription>
                     </Alert>
 
-                    {activeAlerts.map((alunoRisco) => (
+                    {paginatedActiveAlerts.map((alunoRisco) => (
                       <Card key={alunoRisco.aluno.id} className={`border-l-4 ${alunoRisco.nivelRisco === 'alto' ? 'border-l-destructive' : 'border-l-warning'}`}>
                         <CardContent className="pt-4">
                           <div className="flex items-start justify-between">
@@ -627,6 +689,15 @@ export default function AnalysesPage() {
                         </CardContent>
                       </Card>
                     ))}
+                    {activeAlerts.length > pageSize && (
+                      <div className="flex items-center justify-between pt-2">
+                        <p className="text-sm text-muted-foreground">Página {riskPage} de {riskTotalPages}</p>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" disabled={riskPage <= 1} onClick={() => setRiskPage((p) => Math.max(1, p - 1))}>Anterior</Button>
+                          <Button variant="outline" size="sm" disabled={riskPage >= riskTotalPages} onClick={() => setRiskPage((p) => Math.min(riskTotalPages, p + 1))}>Próxima</Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -650,7 +721,7 @@ export default function AnalysesPage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {rankingAlunos.map((ranking) => (
+                    {paginatedRankingAlunos.map((ranking) => (
                       <div key={ranking.aluno.id} className={`flex items-center justify-between p-4 rounded-lg ${ranking.posicao <= 3 ? 'bg-gradient-primary/10' : 'bg-muted/30'}`}>
                         <div className="flex items-center space-x-4">
                           <div className="flex items-center justify-center w-10 h-10">
@@ -675,6 +746,15 @@ export default function AnalysesPage() {
                         </div>
                       </div>
                     ))}
+                    {rankingAlunos.length > pageSize && (
+                      <div className="flex items-center justify-between pt-2">
+                        <p className="text-sm text-muted-foreground">Página {rankingAlunosPage} de {rankingAlunosTotalPages}</p>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" disabled={rankingAlunosPage <= 1} onClick={() => setRankingAlunosPage((p) => Math.max(1, p - 1))}>Anterior</Button>
+                          <Button variant="outline" size="sm" disabled={rankingAlunosPage >= rankingAlunosTotalPages} onClick={() => setRankingAlunosPage((p) => Math.min(rankingAlunosTotalPages, p + 1))}>Próxima</Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -698,7 +778,7 @@ export default function AnalysesPage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {rankingTurmas.map((ranking) => (
+                    {paginatedRankingTurmas.map((ranking) => (
                       <div key={ranking.turma.id} className={`p-4 rounded-lg border ${ranking.posicao <= 3 ? 'bg-gradient-primary/10 border-primary/20' : 'bg-muted/30 border-border'}`}>
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center space-x-4">
@@ -741,6 +821,15 @@ export default function AnalysesPage() {
                         </div>
                       </div>
                     ))}
+                    {rankingTurmas.length > pageSize && (
+                      <div className="flex items-center justify-between pt-2">
+                        <p className="text-sm text-muted-foreground">Página {rankingTurmasPage} de {rankingTurmasTotalPages}</p>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" disabled={rankingTurmasPage <= 1} onClick={() => setRankingTurmasPage((p) => Math.max(1, p - 1))}>Anterior</Button>
+                          <Button variant="outline" size="sm" disabled={rankingTurmasPage >= rankingTurmasTotalPages} onClick={() => setRankingTurmasPage((p) => Math.min(rankingTurmasTotalPages, p + 1))}>Próxima</Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -769,7 +858,7 @@ export default function AnalysesPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {archivedAlerts.map((alerta) => (
+                    {paginatedHistorico.map((alerta) => (
                       <Card key={alerta.id} className={`border-l-4 ${alerta.status === 'arquivado' ? 'border-l-success' : 'border-l-warning'} p-4`}>
                         <div className="flex items-center justify-between mb-2">
                           <div>
@@ -797,13 +886,22 @@ export default function AnalysesPage() {
                         )}
                         <div className="flex justify-end mt-3">
                           {alerta.status === 'arquivado' && (
-                            <Button variant="outline" size="sm" onClick={() => handleReopenAlert(alerta)}>
-                              <RefreshCcw size={14} className="mr-1" /> Reabrir Alerta
-                            </Button>
+                              <Button variant="outline" size="sm" onClick={() => openReopenDialog(alerta)}>
+                                <RefreshCcw size={14} className="mr-1" /> Reabrir Alerta
+                              </Button>
                           )}
                         </div>
                       </Card>
                     ))}
+                    {archivedAlerts.length > pageSize && (
+                      <div className="flex items-center justify-between pt-2">
+                        <p className="text-sm text-muted-foreground">Página {historicoPage} de {historicoTotalPages}</p>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" disabled={historicoPage <= 1} onClick={() => setHistoricoPage((p) => Math.max(1, p - 1))}>Anterior</Button>
+                          <Button variant="outline" size="sm" disabled={historicoPage >= historicoTotalPages} onClick={() => setHistoricoPage((p) => Math.min(historicoTotalPages, p + 1))}>Próxima</Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -846,6 +944,23 @@ export default function AnalysesPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isReopenDialogOpen} onOpenChange={setIsReopenDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reabrir alerta</AlertDialogTitle>
+            <AlertDialogDescription>
+              Confirmar reabertura do alerta para <strong>{alertToReopen?.aluno?.nome || 'Aluno'}</strong> ({alertToReopen?.tipoAlerta || 'Alerta'}).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setAlertToReopen(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => alertToReopen && handleReopenAlert(alertToReopen)}>
+              Reabrir alerta
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

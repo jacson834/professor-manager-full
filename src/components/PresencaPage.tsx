@@ -48,6 +48,8 @@ export default function PresencaPage() {
 
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [searchBy, setSearchBy] = useState<SearchCriteria>('nome');
+  const [alunosPage, setAlunosPage] = useState(1);
+  const alunosPageSize = 20;
 
   const [viewMode, setViewMode] = useState<ViewMode>('detailed-list');
   const [pageMode, setPageMode] = useState<'diario' | 'mensal'>('diario');
@@ -337,6 +339,17 @@ export default function PresencaPage() {
     return currentAlunos;
   }, [alunos, searchTerm, searchBy, sortCriteria, sortDirection]);
 
+  useEffect(() => {
+    setAlunosPage(1);
+  }, [selectedTurma, searchTerm, searchBy, sortCriteria, sortDirection, pageMode]);
+
+  const paginatedAlunos = useMemo(() => {
+    const start = (alunosPage - 1) * alunosPageSize;
+    return filteredAndSortedAlunos.slice(start, start + alunosPageSize);
+  }, [filteredAndSortedAlunos, alunosPage]);
+
+  const totalAlunosPages = Math.max(1, Math.ceil(filteredAndSortedAlunos.length / alunosPageSize));
+
 
   const getPresencaStats = () => {
     const total = filteredAndSortedAlunos.length;
@@ -528,7 +541,7 @@ export default function PresencaPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {alunos.map(aluno => {
+                        {paginatedAlunos.map(aluno => {
                           const presencasAluno = presencasMensais.filter(p => p.alunoId === aluno.id);
                           const presentes = presencasAluno.filter(p => p.presente).length;
                           const total = presencasAluno.length;
@@ -632,7 +645,7 @@ export default function PresencaPage() {
               {/* Modo de Visualização em Cards */}
               {viewMode === 'card' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredAndSortedAlunos.map((aluno) => {
+                  {paginatedAlunos.map((aluno) => {
                     const dadosPresenca = presencaData[aluno.id] || { presente: false, observacao: '' };
                     return (
                       <Card key={aluno.id} className="shadow-card border-border hover:shadow-elegant transition-shadow duration-200">
@@ -713,7 +726,7 @@ export default function PresencaPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredAndSortedAlunos.map((aluno) => {
+                      {paginatedAlunos.map((aluno) => {
                         const dadosPresenca = presencaData[aluno.id] || { presente: false, observacao: '' };
                         return (
                           <tr key={aluno.id} className="border-b border-border hover:bg-muted/30">
@@ -772,6 +785,22 @@ export default function PresencaPage() {
                 </div>
               )}
             </>
+          )}
+
+          {filteredAndSortedAlunos.length > alunosPageSize && (
+            <div className="flex items-center justify-between pt-4">
+              <p className="text-sm text-muted-foreground">
+                Página {alunosPage} de {totalAlunosPages} ({filteredAndSortedAlunos.length} alunos)
+              </p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" disabled={alunosPage <= 1} onClick={() => setAlunosPage((p) => Math.max(1, p - 1))}>
+                  Anterior
+                </Button>
+                <Button variant="outline" size="sm" disabled={alunosPage >= totalAlunosPages} onClick={() => setAlunosPage((p) => Math.min(totalAlunosPages, p + 1))}>
+                  Próxima
+                </Button>
+              </div>
+            </div>
           )}
         </>
       )}

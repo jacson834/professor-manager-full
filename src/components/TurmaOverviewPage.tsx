@@ -1,10 +1,12 @@
 // src/components/TurmaOverviewPage.tsx
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import {
   turmasApi,
   alunosApi,
@@ -13,7 +15,8 @@ import {
   Turma, Aluno, Nota, Professor
 } from '@/lib/database';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, BookOpen, Users, Award, TrendingUp } from 'lucide-react';
+import { ArrowLeft, BookOpen, Users, Award, TrendingUp, MessageCircle } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Interface para um aluno com suas notas e projeções
 interface AlunoComDesempenho extends Aluno {
@@ -28,6 +31,7 @@ interface AlunoComDesempenho extends Aluno {
 }
 
 export default function TurmaOverviewPage() {
+  const { user } = useAuth();
   const { turmaId } = useParams<{ turmaId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -36,12 +40,38 @@ export default function TurmaOverviewPage() {
   const [professores, setProfessores] = useState<Professor[]>([]);
   const [alunosComDesempenho, setAlunosComDesempenho] = useState<AlunoComDesempenho[]>([]);
   const [loading, setLoading] = useState(true);
+  const [recadoTurma, setRecadoTurma] = useState('');
+  const [savingRecado, setSavingRecado] = useState(false);
+
+  const normalizePhone = (phone?: string) => {
+    if (!phone) return null;
+    const digits = phone.replace(/\D/g, '');
+    if (!digits) return null;
+    return digits.startsWith('55') ? digits : `55${digits}`;
+  };
+
+  const whatsappTargets = useMemo(() => {
+    const seen = new Set<string>();
+    return alunosComDesempenho
+      .map((aluno) => ({
+        alunoNome: aluno.nome,
+        responsavel: aluno.responsavel || 'Responsável',
+        phone: normalizePhone(aluno.responsavelTelefone || aluno.telefone),
+      }))
+      .filter((item) => {
+        if (!item.phone || seen.has(item.phone)) return false;
+        seen.add(item.phone);
+        return true;
+      });
+  }, [alunosComDesempenho]);
 
   // Função auxiliar para obter o nome do professor (continua sendo um useCallback)
   const getProfessorNome = useCallback((professorId: string) => {
+    if (!professorId || professorId === '__unassigned__') return 'Sem professor responsável';
+    if (user?.role === 'professor' && user.professorId === professorId) return user.nome;
     const professor = professores.find(p => p.id === professorId);
     return professor ? professor.nome : 'Professor Desconhecido';
-  }, [professores]);
+  }, [professores, user]);
 
 
   // Função principal para carregar dados da turma, alunos e notas (agora é um useCallback)
@@ -55,7 +85,7 @@ export default function TurmaOverviewPage() {
     try {
       const [allTurmas, allProfessores, alunosDaTurma, notasDaTurma] = await Promise.all([
         turmasApi.getTurmas(),
-        professoresApi.getProfessores(),
+        user?.role === 'admin' ? professoresApi.getProfessores() : Promise.resolve([]),
         alunosApi.getAlunosByTurma(turmaId),
         notasApi.getNotasByTurma(turmaId)
       ]);
@@ -69,6 +99,7 @@ export default function TurmaOverviewPage() {
         return;
       }
       setTurma(selectedTurma);
+      setRecadoTurma(selectedTurma.observacao || '');
 
       const processedAlunos: AlunoComDesempenho[] = alunosDaTurma.map(aluno => {
         const notasDoAluno = notasDaTurma.filter(n => n.alunoId === aluno.id);
@@ -168,7 +199,56 @@ export default function TurmaOverviewPage() {
     } finally {
       setLoading(false);
     }
-  }, [turmaId, toast]); // REMOVIDO getProfessorNome das dependências do useCallback loadTurmaData
+  }, [turmaId, toast, user?.role]); // REMOVIDO getProfessorNome das dependências do useCallback loadTurmaData
+
+  const handleSalvarRecadoTurma = async () => {
+    if (!turma) return;
+    setSavingRecado(true);
+    try {
+      await turmasApi.updateTurma(turma.id, {
+        nome: turma.nome,
+        professorId: turma.professorId,
+        ano: turma.ano,
+        semestre: turma.semestre,
+        observacao: recadoTurma,
+        minPassingGrade: turma.minPassingGrade,
+      });
+
+      setTurma({ ...turma, observacao: recadoTurma });
+      toast({ title: 'Sucesso', description: 'Recado da turma salvo com sucesso.' });
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.error || 'Falha ao salvar recado da turma.',
+        variant: 'destructive'
+      });
+    } finally {
+      setSavingRecado(false);
+    }
+  };
+
+  const enviarRecadoWhatsapp = () => {
+    if (!recadoTurma.trim()) {
+      toast({ title: 'Recado vazio', description: 'Escreva o recado antes de enviar.', variant: 'destructive' });
+      return;
+    }
+    if (whatsappTargets.length === 0) {
+      toast({ title: 'Sem contatos', description: 'Nenhum telefone de responsável disponível para envio.', variant: 'destructive' });
+      return;
+    }
+
+    const mensagem = encodeURIComponent(`Recado da turma ${turma?.nome}:\n\n${recadoTurma}`);
+    whatsappTargets.forEach((target, index) => {
+      setTimeout(() => {
+        window.open(`https://wa.me/${target.phone}?text=${mensagem}`, '_blank', 'noopener,noreferrer');
+      }, index * 250);
+    });
+
+    toast({
+      title: 'Envio iniciado',
+      description: `Abrindo WhatsApp para ${whatsappTargets.length} contato(s).`
+    });
+  };
 
   // O useEffect agora só depende de loadTurmaData (que é um useCallback e está estável)
   useEffect(() => {
@@ -207,12 +287,44 @@ export default function TurmaOverviewPage() {
             Ano: {turma.ano} • Professor: {getProfessorNome(turma.professorId)} • Média Aprovação: {turma.minPassingGrade?.toFixed(1) || 'N/A'}
           </p>
         </div>
-        <Button className="bg-primary hover:bg-primary-hover">
+        <Button className="bg-primary hover:bg-primary-hover" onClick={() => navigate('/relatorios', { state: { turmaId } })}>
           <Award size={16} className="mr-2" /> Gerar Relatório da Turma
         </Button>
       </div>
 
       <Separator />
+
+      <Card className="shadow-card border-border">
+        <CardHeader>
+          <CardTitle className="text-foreground">Recado da Turma</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div>
+            <Label htmlFor="recadoTurma">Mensagem para a turma</Label>
+            <Textarea
+              id="recadoTurma"
+              value={recadoTurma}
+              onChange={(e) => setRecadoTurma(e.target.value)}
+              placeholder="Ex: Revisar capítulo 3 e trazer atividade concluída para a próxima aula."
+              rows={4}
+              className="mt-2"
+            />
+          </div>
+          <div className="flex justify-end">
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={enviarRecadoWhatsapp} disabled={savingRecado || !recadoTurma.trim()}>
+                <MessageCircle size={16} className="mr-2" /> Enviar no WhatsApp
+              </Button>
+              <Button onClick={handleSalvarRecadoTurma} disabled={savingRecado}>
+              {savingRecado ? 'Salvando...' : 'Salvar Recado'}
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            O envio usa os telefones de responsáveis dos alunos da turma.
+          </p>
+        </CardContent>
+      </Card>
 
       <h2 className="text-2xl font-bold text-foreground mb-4 flex items-center gap-2">
         <Users className="h-6 w-6" />

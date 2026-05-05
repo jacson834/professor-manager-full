@@ -7,6 +7,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   professoresApi,
   turmasApi,
   alunosApi,
@@ -19,7 +29,7 @@ import {
   backupApi,
 } from '@/lib/database';
 import { useToast } from '@/hooks/use-toast';
-import { FileDown, FileUp, Eraser, Settings, Info, Cloud, Save, Users } from 'lucide-react';
+import { FileDown, FileUp, Eraser, Settings, Info, Cloud, Save, Users, Database, Wrench } from 'lucide-react';
 import axios from 'axios';
 
 interface AppSettings {
@@ -36,6 +46,7 @@ export default function ConfiguracoesPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [fileToImport, setFileToImport] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<null | 'import' | 'clear' | 'migrate'>(null);
 
   const [appSettings, setAppSettings] = useState<AppSettings>({
     institutionName: '',
@@ -286,10 +297,6 @@ export default function ConfiguracoesPage() {
       return;
     }
     
-    if (!window.confirm("Importar dados sobrescreverá os dados existentes. Tem certeza? Esta ação é irreversível e pode causar perda de dados.")) {
-      return;
-    }
-
     setIsImporting(true);
     const reader = new FileReader();
     
@@ -336,10 +343,6 @@ export default function ConfiguracoesPage() {
   };
 
   const clearAllData = async () => {
-    if (!window.confirm("Esta ação limpará TODOS os dados do banco de dados permanentemente. Tem certeza? Esta ação é irreversível!")) {
-      return;
-    }
-
     setIsLoading(true);
     try {
       await axios.post('/api/admin/clear-all-data');
@@ -365,9 +368,6 @@ export default function ConfiguracoesPage() {
   };
 
   const migrateProfessorUsuario = async () => {
-    if (!window.confirm("Vincular usuários professores aos seus professores?")) {
-      return;
-    }
     try {
       const response = await axios.post('/api/admin/migrate-professor-usuario');
       toast({
@@ -381,6 +381,56 @@ export default function ConfiguracoesPage() {
         title: "Erro",
         description: "Falha na migração de professor-usuário.",
         variant: "destructive"
+      });
+    }
+  };
+
+  const runConfirmedAction = async () => {
+    const action = confirmAction;
+    setConfirmAction(null);
+    if (action === 'import') {
+      await handleImportData();
+      return;
+    }
+    if (action === 'clear') {
+      await clearAllData();
+      return;
+    }
+    if (action === 'migrate') {
+      await migrateProfessorUsuario();
+    }
+  };
+
+  const runVacuum = async () => {
+    try {
+      const response = await axios.post('/api/admin/vacuum');
+      toast({ title: 'Sucesso', description: response.data.message || 'Otimização concluída.' });
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.error || 'Falha ao executar otimização do banco.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const downloadDbBackup = async () => {
+    try {
+      const response = await axios.get('/api/admin/backup', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `backup-db-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.db`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast({ title: 'Sucesso', description: 'Backup do banco baixado com sucesso.' });
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.error || 'Falha ao gerar backup do banco.',
+        variant: 'destructive'
       });
     }
   };
@@ -445,7 +495,7 @@ export default function ConfiguracoesPage() {
                   <span className="font-bold text-destructive"> Isso sobrescreverá os dados existentes no backend!</span>
                 </p>
                 <Input type="file" accept=".json,.xml" onChange={handleImportFileChange} className="mb-3" />
-                <Button onClick={handleImportData} disabled={!fileToImport || isImporting} className="bg-primary hover:bg-primary-hover">
+                <Button onClick={() => setConfirmAction('import')} disabled={!fileToImport || isImporting} className="bg-primary hover:bg-primary-hover">
                   {isImporting ? 'Importando...' : 'Importar Dados'}
                 </Button>
                 <p className="text-xs text-muted-foreground">
@@ -473,8 +523,34 @@ export default function ConfiguracoesPage() {
                 <p className="text-sm text-muted-foreground mb-2">
                  associa usuários professor aos seus registros de professor correspondentes.
                 </p>
-                <Button onClick={migrateProfessorUsuario} variant="outline">
+                <Button onClick={() => setConfirmAction('migrate')} variant="outline">
                   Executar Migração
+                </Button>
+              </div>
+              <Separator className="my-6" />
+              <div className="mb-6">
+                <h3 className="font-semibold text-foreground flex items-center gap-2 mb-2">
+                  <Database className="h-4 w-4" />
+                  Backup Técnico do Banco (.db)
+                </h3>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Gera e baixa uma cópia técnica completa do arquivo SQLite.
+                </p>
+                <Button onClick={downloadDbBackup} variant="outline">
+                  Baixar Backup .db
+                </Button>
+              </div>
+              <Separator className="my-6" />
+              <div className="mb-6">
+                <h3 className="font-semibold text-foreground flex items-center gap-2 mb-2">
+                  <Wrench className="h-4 w-4" />
+                  Otimização do Banco
+                </h3>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Executa manutenção VACUUM para reduzir fragmentação e melhorar performance.
+                </p>
+                <Button onClick={runVacuum} variant="outline">
+                  Executar VACUUM
                 </Button>
               </div>
               <Separator className="my-6" />
@@ -487,7 +563,7 @@ export default function ConfiguracoesPage() {
                   Apaga todos os dados (professores, turmas, alunos, notas, etc.) permanentemente do banco de dados.
                   <span className="font-bold text-destructive"> Esta ação é irreversível!</span>
                 </p>
-                <Button onClick={clearAllData} disabled={isLoading} variant="destructive">
+                <Button onClick={() => setConfirmAction('clear')} disabled={isLoading} variant="destructive">
                   {isLoading ? 'Limpando...' : 'Limpar Tudo'}
                 </Button>
                 <p className="text-xs text-muted-foreground mt-2">
@@ -637,6 +713,27 @@ export default function ConfiguracoesPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={confirmAction !== null} onOpenChange={(open) => !open && setConfirmAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmAction === 'import' && 'Importar dados'}
+              {confirmAction === 'clear' && 'Limpar todos os dados'}
+              {confirmAction === 'migrate' && 'Vincular professores e usuários'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction === 'import' && 'Importar dados sobrescreverá os dados existentes. Esta ação é irreversível.'}
+              {confirmAction === 'clear' && 'Esta ação limpará TODOS os dados do banco de dados permanentemente. Esta ação é irreversível!'}
+              {confirmAction === 'migrate' && 'Deseja vincular usuários professores aos seus professores correspondentes?'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={runConfirmedAction}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

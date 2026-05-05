@@ -5,10 +5,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { 
   UserPlus, 
   Trash2, 
-  UserCog, 
+  UserCog,
+  Edit,
+  KeyRound,
   Users, 
   ShieldCheck, 
   UserCircle 
@@ -33,6 +45,16 @@ export default function UsuariosPage() {
     password: '',
     nome: '',
     role: 'professor' as 'admin' | 'professor'
+  });
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editUser, setEditUser] = useState({
+    username: '',
+    nome: '',
+    role: 'professor' as 'admin' | 'professor',
+    password: ''
   });
 
   const fetchUsers = async () => {
@@ -73,7 +95,6 @@ export default function UsuariosPage() {
   };
 
   const handleDeleteUser = async (id: string) => {
-    if (!window.confirm("Tem certeza que deseja excluir este usuário?")) return;
     try {
       await axios.delete(`/api/usuarios/${id}`);
       toast({ title: "Sucesso", description: "Usuário removido!" });
@@ -83,6 +104,52 @@ export default function UsuariosPage() {
         title: "Erro",
         description: "Falha ao excluir usuário.",
         variant: "destructive"
+      });
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setUserToDelete(null);
+    }
+  };
+
+  const openDeleteDialog = (user: User) => {
+    setUserToDelete(user);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const openEditDialog = (user: User) => {
+    setEditingUserId(user.id);
+    setEditUser({
+      username: user.username,
+      nome: user.nome,
+      role: user.role,
+      password: ''
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUserId) return;
+
+    try {
+      await axios.put(`/api/usuarios/${editingUserId}`, {
+        username: editUser.username,
+        nome: editUser.nome,
+        role: editUser.role,
+        password: editUser.password || undefined
+      });
+      toast({
+        title: 'Sucesso',
+        description: editUser.password ? 'Usuário atualizado e senha redefinida.' : 'Usuário atualizado com sucesso.'
+      });
+      setIsEditDialogOpen(false);
+      setEditingUserId(null);
+      fetchUsers();
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.error || 'Falha ao atualizar usuário.',
+        variant: 'destructive'
       });
     }
   };
@@ -187,10 +254,19 @@ export default function UsuariosPage() {
                         </span>
                       </td>
                       <td className="p-3 text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditDialog(user)}
+                          className="mr-1"
+                          title="Editar usuário / trocar senha"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          onClick={() => handleDeleteUser(user.id)}
+                          onClick={() => openDeleteDialog(user)}
                           className="text-destructive hover:text-destructive hover:bg-destructive/10"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -209,6 +285,74 @@ export default function UsuariosPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Usuário</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditUser} className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Nome Completo</Label>
+              <Input
+                value={editUser.nome}
+                onChange={e => setEditUser({ ...editUser, nome: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Nome de Usuário (Login)</Label>
+              <Input
+                value={editUser.username}
+                onChange={e => setEditUser({ ...editUser, username: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Nível de Acesso</Label>
+              <Select
+                value={editUser.role}
+                onValueChange={(val: 'admin' | 'professor') => setEditUser({ ...editUser, role: val })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o nível" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Administrador</SelectItem>
+                  <SelectItem value="professor">Professor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2"><KeyRound className="h-4 w-4" /> Nova Senha (opcional)</Label>
+              <Input
+                type="password"
+                value={editUser.password}
+                onChange={e => setEditUser({ ...editUser, password: e.target.value })}
+                placeholder="Deixe em branco para manter"
+              />
+            </div>
+            <Button type="submit" className="w-full">Salvar Alterações</Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir usuário</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está prestes a excluir o usuário <strong>{userToDelete?.username || ''}</strong>. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setUserToDelete(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => userToDelete && handleDeleteUser(userToDelete.id)}>
+              Excluir usuário
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

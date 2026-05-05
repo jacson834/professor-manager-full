@@ -212,3 +212,54 @@ Todos com `@page { size: landscape; }`
 ---
 
 *Atualizado em: 30/04/2026*
+
+---
+
+## Atualização: 05/05/2026
+
+### O que avançamos nesta etapa
+
+1. **Autenticação e autorização reforçadas**
+- Implementado JWT no backend com middleware de autenticação por token.
+- Frontend passou a enviar `Authorization: Bearer <token>` automaticamente.
+- Rotas administrativas protegidas para `admin` e validações de perfil `professor` aplicadas nas rotas pedagógicas.
+
+2. **Escopo por perfil (admin x professor)**
+- Professor fica restrito aos próprios dados (turmas, alunos, presenças e notas).
+- Admin ganhou leitura de dados necessários para visão geral e relatórios sem assumir ações de professor.
+- Menu e páginas ajustados por perfil, incluindo ocultação de notificações para admin.
+
+3. **Turmas sem professor responsável**
+- Suporte completo para criar turma sem professor.
+- Introduzido identificador interno `__unassigned__` para manter integridade do banco.
+- Filtro "Apenas sem professor" disponível apenas para admin.
+
+4. **Performance e escalabilidade**
+- Criado endpoint consolidado de dashboard (`/api/dashboard/summary`).
+- Inclusão de índices no SQLite para consultas frequentes.
+- Paginação aplicada em listagens grandes (alunos, notas, presenças, análises e relatórios).
+
+5. **UX de confirmação modernizada**
+- Substituição de confirmações com `window.confirm` por modais de confirmação (`AlertDialog`) nas principais páginas.
+
+6. **Correções funcionais relevantes**
+- Ajustes de exclusão de aluno com limpeza de dependências (presenças, notas e alertas).
+- Correções de permissões que geravam `403` para admin em leituras de notas/presenças.
+- Botão "Gerar Relatório da Turma" na visão geral passando `turmaId` corretamente para a página de relatórios.
+
+7. **Recado da turma + WhatsApp**
+- Na página **Visão Geral da Turma** foi adicionada seção **Recado da Turma**.
+- O recado pode ser salvo no campo `observacao` da turma.
+- Adicionado botão **Enviar no WhatsApp** para direcionar a mensagem aos contatos da turma.
+- Envio utiliza telefone do responsável (com fallback para telefone do aluno), normaliza para formato `55...` e evita duplicidade de números.
+
+### Arquivo principal atualizado nesta etapa
+- `src/components/TurmaOverviewPage.tsx`
+
+### Observações técnicas
+- Build do frontend validado com sucesso após as alterações.
+- Permanecem apenas avisos não bloqueantes de chunk grande no build e avisos de acessibilidade em alguns diálogos legados.
+
+---
+
+*Última atualização: 05/05/2026*

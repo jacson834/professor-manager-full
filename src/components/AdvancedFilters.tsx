@@ -9,10 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
   turmasApi,
-  alunosApi,
   professoresApi,
-  Turma, Aluno, Professor
+  Turma, Professor
 } from '@/lib/database';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface FilterCriteria {
   turma?: string;
@@ -40,6 +40,7 @@ export function AdvancedFilters({
   onApplyFilters, 
   currentFilters 
 }: AdvancedFiltersProps) {
+  const { user } = useAuth();
   const [filters, setFilters] = useState<FilterCriteria>(currentFilters);
   const [professoresList, setProfessoresList] = useState<Professor[]>([]);
   const [turmasList, setTurmasList] = useState<Turma[]>([]);
@@ -49,9 +50,10 @@ export function AdvancedFilters({
   useEffect(() => {
     const loadFilterData = async () => { // Tornar assíncrona
       try {
+        const professorId = user?.role === 'professor' ? user.professorId : undefined;
         const [professoresData, turmasData] = await Promise.all([
-          professoresApi.getProfessores(),
-          turmasApi.getTurmas(),
+          user?.role === 'admin' ? professoresApi.getProfessores() : Promise.resolve([]),
+          turmasApi.getTurmas(professorId),
         ]);
         setProfessoresList(professoresData);
         setTurmasList(turmasData);
@@ -65,7 +67,7 @@ setPeriodos(Array.from(new Set(turmasData.map(t => `${t.ano}/${t.semestre || ''}
       }
     };
     loadFilterData();
-  }, []);
+  }, [user?.role, user?.professorId]);
 
   const handleApply = () => {
     onApplyFilters(filters);

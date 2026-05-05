@@ -20,8 +20,6 @@ import {
 import {
   alunosApi,
   turmasApi,
-  notasApi,
-  presencasApi,
   Aluno, Turma
 } from '@/lib/database';
 import { Plus, Edit, Trash2, Mail, Phone, User, Calendar, LayoutGrid, List, Table as TableIcon, Search, ArrowDownAZ, ArrowUpAZ, Hash, Users as UsersIcon } from 'lucide-react';
@@ -46,6 +44,8 @@ export default function AlunosPage() {
   const [alunos, setAlunos] = useState<Aluno[]>([]);
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [alunoToDelete, setAlunoToDelete] = useState<Aluno | null>(null);
   const [editingAluno, setEditingAluno] = useState<Aluno | null>(null);
   const [selectedTurma, setSelectedTurma] = useState<string>('todas');
   const [formData, setFormData] = useState({
@@ -55,7 +55,8 @@ export default function AlunosPage() {
     email: '',
     telefone: '',
     dataNascimento: '',
-    responsavel: ''
+    responsavel: '',
+    responsavelTelefone: ''
   });
   const { toast } = useToast();
   const [viewMode, setViewMode] = useState<ViewMode>('card');
@@ -65,6 +66,9 @@ export default function AlunosPage() {
 
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [searchBy, setSearchBy] = useState<SearchCriteria>('nome');
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
+  const [totalAlunos, setTotalAlunos] = useState(0);
 
 
   useEffect(() => {
@@ -74,16 +78,23 @@ export default function AlunosPage() {
 
   useEffect(() => {
     loadAlunos();
-  }, [selectedTurma, user]);
+  }, [selectedTurma, user, page]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedTurma]);
 
   const loadAlunos = async () => {
     try {
       const professorId = user?.role === 'professor' ? user.professorId : undefined;
-      const allAlunosData = await alunosApi.getAlunos(professorId);
-      const filtered = selectedTurma === 'todas'
-        ? allAlunosData
-        : allAlunosData.filter(aluno => aluno.turmaId === selectedTurma);
-      setAlunos(filtered);
+      const { alunos: allAlunosData, total } = await alunosApi.getAlunosPaginated({
+        professorId,
+        turmaId: selectedTurma !== 'todas' ? selectedTurma : undefined,
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
+      });
+      setTotalAlunos(total);
+      setAlunos(allAlunosData);
     } catch (error) {
       console.error("Erro ao carregar alunos:", error);
       toast({
@@ -177,45 +188,40 @@ export default function AlunosPage() {
       email: aluno.email || '', // Garantir que campos opcionais não sejam null/undefined
       telefone: aluno.telefone || '',
       dataNascimento: aluno.dataNascimento || '',
-      responsavel: aluno.responsavel || ''
+      responsavel: aluno.responsavel || '',
+      responsavelTelefone: aluno.responsavelTelefone || ''
     });
     setIsDialogOpen(true);
   };
 
-  const handleDelete = async (id: string) => { // Tornar a função assíncrona
-    if (window.confirm('Tem certeza que deseja excluir este aluno? Todas as notas e presenças serão perdidas.')) {
-      try {
-        // Remover notas e presenças do aluno
-        const notas = await notasApi.getNotasByAluno(id); // API Assíncrona
-        const presencas = await presencasApi.getPresencasByAluno(id); // API Assíncrona
-        
-        // Deletar uma por uma, ou ter um endpoint no backend para deletar em massa por alunoId
-        for (const nota of notas) {
-            await notasApi.deleteNota(nota.id); // API Assíncrona
-        }
-        for (const presenca of presencas) {
-            await presencasApi.deletePresenca(presenca.id); // API Assíncrona
-        }
-        
-        await alunosApi.deleteAluno(id); // API Assíncrona
-        await loadAlunos(); // Recarregar dados após a operação
-        toast({
-          title: "Sucesso",
-          description: "Aluno excluído com sucesso!"
-        });
-      } catch (error: any) {
-        console.error("Erro ao deletar aluno:", error);
-        let errorMessage = "Erro ao deletar aluno.";
-        if (error.response && error.response.data && error.response.data.error) {
-          errorMessage = error.response.data.error;
-        }
-        toast({
-          title: "Erro",
-          description: errorMessage,
-          variant: "destructive"
-        });
+  const handleDelete = async (id: string) => {
+    try {
+      await alunosApi.deleteAluno(id);
+      await loadAlunos();
+      toast({
+        title: "Sucesso",
+        description: "Aluno excluído com sucesso!"
+      });
+    } catch (error: any) {
+      console.error("Erro ao deletar aluno:", error);
+      let errorMessage = "Erro ao deletar aluno.";
+      if (error.response && error.response.data && error.response.data.error) {
+        errorMessage = error.response.data.error;
       }
+      toast({
+        title: "Erro",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setAlunoToDelete(null);
     }
+  };
+
+  const openDeleteDialog = (aluno: Aluno) => {
+    setAlunoToDelete(aluno);
+    setIsDeleteDialogOpen(true);
   };
 
   const resetForm = () => {
@@ -226,7 +232,8 @@ export default function AlunosPage() {
       email: '', 
       telefone: '', 
       dataNascimento: '', 
-      responsavel: '' 
+      responsavel: '',
+      responsavelTelefone: ''
     });
     setEditingAluno(null);
   };
@@ -234,6 +241,14 @@ export default function AlunosPage() {
   const getTurmaNome = (turmaId: string) => {
     const turma = turmas.find(t => t.id === turmaId);
     return turma ? `${turma.nome} - ${turma.ano}` : 'Turma não encontrada';
+  };
+
+  const getWhatsAppLink = (phone?: string) => {
+    if (!phone) return null;
+    const digits = phone.replace(/\D/g, '');
+    if (!digits) return null;
+    const withCountryCode = digits.startsWith('55') ? digits : `55${digits}`;
+    return `https://wa.me/${withCountryCode}`;
   };
 
   const filteredAndSortedAlunos = useMemo(() => {
@@ -381,6 +396,15 @@ export default function AlunosPage() {
                   />
                 </div>
               </div>
+              <div>
+                <Label htmlFor="responsavelTelefone">Telefone do Responsável</Label>
+                <Input
+                  id="responsavelTelefone"
+                  value={formData.responsavelTelefone}
+                  onChange={(e) => setFormData({...formData, responsavelTelefone: e.target.value})}
+                  placeholder="(00) 00000-0000"
+                />
+              </div>
               <div className="flex justify-end space-x-2 pt-4">
                 <Button 
                   type="button" 
@@ -419,6 +443,30 @@ export default function AlunosPage() {
           </div>
         </CardContent>
       </Card>
+
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          Página {page} de {Math.max(1, Math.ceil(totalAlunos / pageSize))} ({totalAlunos} alunos)
+        </p>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            Anterior
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= Math.max(1, Math.ceil(totalAlunos / pageSize))}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Próxima
+          </Button>
+        </div>
+      </div>
 
       {/* Lista de alunos */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -462,14 +510,14 @@ export default function AlunosPage() {
                     >
                       <Edit size={16} />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(aluno.id)}
-                      className="text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 size={16} />
-                    </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openDeleteDialog(aluno)}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 size={16} />
+                      </Button>
                   </div>
                 </div>
               </CardHeader>
@@ -483,7 +531,13 @@ export default function AlunosPage() {
                 {aluno.telefone && (
                   <div className="flex items-center text-sm text-muted-foreground">
                     <Phone size={14} className="mr-2" />
-                    <span>{aluno.telefone}</span>
+                    {getWhatsAppLink(aluno.telefone) ? (
+                      <a href={getWhatsAppLink(aluno.telefone) || '#'} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">
+                        {aluno.telefone}
+                      </a>
+                    ) : (
+                      <span>{aluno.telefone}</span>
+                    )}
                   </div>
                 )}
                 {aluno.dataNascimento && (
@@ -498,6 +552,18 @@ export default function AlunosPage() {
                     <span>Resp: {aluno.responsavel}</span>
                   </div>
                 )}
+                {aluno.responsavelTelefone && (
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <Phone size={14} className="mr-2" />
+                    {getWhatsAppLink(aluno.responsavelTelefone) ? (
+                      <a href={getWhatsAppLink(aluno.responsavelTelefone) || '#'} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">
+                        Resp. Tel: {aluno.responsavelTelefone}
+                      </a>
+                    ) : (
+                      <span>Resp. Tel: {aluno.responsavelTelefone}</span>
+                    )}
+                  </div>
+                )}
                 <div className="text-xs text-muted-foreground mt-3">
                   Cadastrado em {new Date(aluno.createdAt).toLocaleDateString('pt-BR')}
                 </div>
@@ -506,6 +572,27 @@ export default function AlunosPage() {
           ))
         )}
       </div>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir aluno</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação removerá o aluno <strong>{alunoToDelete?.nome || ''}</strong> e todos os dados vinculados de notas e presenças.
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setAlunoToDelete(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => alunoToDelete && handleDelete(alunoToDelete.id)}
+            >
+              Excluir aluno
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

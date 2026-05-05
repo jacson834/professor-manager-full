@@ -33,7 +33,7 @@ SUGESTÕES DE FUNCIONALIDADES PARA O SISTEMA PROFESSORMANAGER
 8. FERIADOS ESCOLARES
    - Já existe tabela no banco
    - Falta página de gestão de feriados
-   - Automaticamente bloquear在这些日期 registro de presença
+   - Automaticamente bloquear registro de presença nestas datas
 
 9. RELATÓRIO DE FREQUÊNCIA MENSAL
    - Planilha por turma/mês
@@ -64,5 +64,38 @@ SUGESTÕES DE FUNCIONALIDADES PARA O SISTEMA PROFESSORMANAGER
     - Por tipo de avaliação
     - Por turma
 
----
-Data: 29/04/2026
+=======================================================
+ORQUESTRAÇÃO MULTI-AGENTE: RELATÓRIO TÉCNICO E AUDITORIA
+Data da Análise: 30/04/2026
+=======================================================
+
+🛡️ SECURITY AUDITOR (Segurança & Integridade)
+---------------------------------------------
+16. VAZAMENTO DE SEGREDOS (CRÍTICO)
+    - Foi detectada a exposição de uma "API Key" diretamente no código fonte em `backend/src/server.ts`. É urgente a migração desta chave para o arquivo `.env`.
+
+17. RISCO DE INJEÇÃO (XSS) E MANIPULAÇÃO DE DOM
+    - O arquivo `src/components/RelatoriosPage.tsx` utiliza a função nativa `document.write()` (linhas 363 e 483). O recomendado é utilizar injeção de DOM segura pelo React.
+    - O componente `src/components/ui/chart.tsx` contém o uso do atributo React `dangerouslySetInnerHTML`. É mandatório garantir que os dados de entrada nesse chart estejam devidamente higienizados e não provenham dos usuários.
+
+18. PROTEÇÃO DE REDE (SECURITY HEADERS)
+    - O sistema backend atualmente carece de configuração de cabeçalhos HSTS (Strict-Transport-Security), CSP (Content-Security-Policy) e X-Frame-Options. Recomenda-se instalar e injetar a lib `helmet`.
+
+⚙️ BACKEND SPECIALIST & DEVOPS
+---------------------------------------------
+19. GESTÃO DE DEPENDÊNCIAS
+    - A auditoria apontou riscos na integridade da cadeia de suprimentos se arquivos de lock (`package-lock.json`, `pnpm-lock.yaml` ou `yarn.lock`) não forem enviados adequadamente ao repositório ou estiverem desatualizados.
+
+20. VALIDAÇÃO DE INPUTS (ZOD / JOI)
+    - O sistema deve validar ativamente os corpos e parâmetros de requisições que vêm do client para o backend para impedir NoSQL/SQL injections ou envio de dados malformados (Poluição de Protótipos).
+
+🎨 FRONTEND SPECIALIST & PERFORMANCE OPTIMIZER
+---------------------------------------------
+21. ERROR BOUNDARIES (Limites de Erro do React)
+    - Adicionar Error Boundaries nas rotas críticas. Isso evita que falhas em renderizações de componentes específicos causem "Tela Branca" generalizada (White Screen of Death).
+
+22. LAZY LOADING & CODE SPLITTING
+    - Para otimizar o carregamento (Core Web Vitals), deve-se implementar divisões de pacote usando `React.lazy()` para as páginas pesadas como Dashboards ou `RelatoriosPage`, só as invocando quando o usuário as acessar.
+
+23. ACESSIBILIDADE E CONTRASTE (WCAG)
+    - Com a nova "Interface de Comando", assegurar que o contraste entre o texto em cinza claro e o fundo extremamente escuro permaneça no ratio de acessibilidade adequado (padrão AAA). Implementar navegação eficiente por Tab/teclado.

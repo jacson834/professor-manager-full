@@ -28,6 +28,7 @@ import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -46,26 +47,15 @@ export default function Dashboard() {
 
   const loadStats = useCallback(async () => {
     try {
-      const professorId = user?.role === 'professor' ? user.professorId : undefined;
-      const [professores, turmas, alunos, presencas, notas] = await Promise.all([
-        professoresApi.getProfessores(),
-        turmasApi.getTurmas(professorId),
-        alunosApi.getAlunos(professorId),
-        presencasApi.getPresencas(),
-        notasApi.getNotas()
-      ]);
-
-      const mediaGeral = notas.length > 0
-        ? notas.reduce((acc, nota) => acc + nota.nota, 0) / notas.length
-        : 0;
+      const { data } = await axios.get('/api/dashboard/summary');
 
       setStats({
-        totalProfessores: professores.length,
-        totalTurmas: turmas.length,
-        totalAlunos: alunos.length,
-        totalPresencas: presencas.length,
-        totalNotas: notas.length,
-        mediaGeral: Math.round(mediaGeral * 10) / 10
+        totalProfessores: data.totalProfessores || 0,
+        totalTurmas: data.totalTurmas || 0,
+        totalAlunos: data.totalAlunos || 0,
+        totalPresencas: data.totalPresencas || 0,
+        totalNotas: data.totalNotas || 0,
+        mediaGeral: data.mediaGeral || 0
       });
     } catch (error) {
       console.error("Erro ao carregar estatísticas do dashboard:", error);
@@ -75,9 +65,14 @@ export default function Dashboard() {
         variant: "destructive"
       });
     }
-  }, [toast]);
+  }, [toast, user?.role, user?.professorId]);
 
   const loadRecentActivities = useCallback(async () => {
+    if (user?.role !== 'professor') {
+      setRecentActivities([]);
+      return;
+    }
+
     try {
       const professorId = user?.role === 'professor' ? user.professorId : undefined;
       const [allNotas, allPresencas, allAlunos, allTurmas] = await Promise.all([
@@ -87,8 +82,14 @@ export default function Dashboard() {
         turmasApi.getTurmas(professorId)
       ]);
 
-      const latestNotas = allNotas.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
-      const latestPresencas = allPresencas.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
+      const alunosIds = new Set(allAlunos.map((a) => a.id));
+      const turmasIds = new Set(allTurmas.map((t) => t.id));
+
+      const notasValidas = allNotas.filter((n) => alunosIds.has(n.alunoId) && turmasIds.has(n.turmaId));
+      const presencasValidas = allPresencas.filter((p) => alunosIds.has(p.alunoId) && turmasIds.has(p.turmaId));
+
+      const latestNotas = notasValidas.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
+      const latestPresencas = presencasValidas.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
 
       const activities = [
         ...latestNotas.map(nota => {
@@ -124,7 +125,7 @@ export default function Dashboard() {
         variant: "destructive"
       });
     }
-  }, [toast]);
+  }, [toast, user?.role, user?.professorId]);
 
   const loadUpcomingEvents = useCallback(async () => {
     try {
@@ -179,27 +180,27 @@ export default function Dashboard() {
       color: 'text-foreground',
       bgColor: 'bg-muted'
     },
-    {
+    ...(user?.role === 'professor' ? [{
       title: 'Presenças',
       value: stats.totalPresencas,
       icon: Calendar,
       color: 'text-foreground',
       bgColor: 'bg-muted'
-    },
-    {
+    }] : []),
+    ...(user?.role === 'professor' ? [{
       title: 'Notas Lançadas',
       value: stats.totalNotas,
       icon: Award,
       color: 'text-foreground',
       bgColor: 'bg-muted'
-    },
-    {
+    }] : []),
+    ...(user?.role === 'professor' ? [{
       title: 'Média Geral',
       value: stats.mediaGeral || '—',
       icon: TrendingUp,
       color: 'text-primary',
       bgColor: 'bg-primary/10'
-    }
+    }] : [])
   ];
 
   return (
@@ -211,7 +212,7 @@ export default function Dashboard() {
             Visão geral técnica e acesso rápido
           </p>
         </div>
-        <div className="flex gap-3">
+         {user?.role === 'professor' && <div className="flex gap-3">
            <Button asChild size="lg" className="h-12 bg-primary text-primary-foreground hover:bg-primary-hover shadow-none rounded-sm">
              <Link to="/presenca">
                <ClipboardCheck className="mr-2 h-5 w-5" />
@@ -224,7 +225,7 @@ export default function Dashboard() {
                Lançar Notas
              </Link>
            </Button>
-        </div>
+         </div>}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -253,7 +254,7 @@ export default function Dashboard() {
           </div>
 
           {/* Atividades recentes */}
-          <Card className="rounded-sm border-border shadow-none bg-card">
+          {user?.role === 'professor' && <Card className="rounded-sm border-border shadow-none bg-card">
             <CardHeader className="p-4 border-b border-border">
               <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Fluxo de Dados Recentes</CardTitle>
             </CardHeader>
@@ -289,7 +290,7 @@ export default function Dashboard() {
                 </div>
               )}
             </CardContent>
-          </Card>
+          </Card>}
         </div>
 
         {/* Coluna Lateral (1/3) - Agenda */}

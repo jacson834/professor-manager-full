@@ -35,7 +35,15 @@ export interface Aluno {
   telefone: string;
   dataNascimento: string;
   responsavel: string;
+  responsavelTelefone?: string;
   createdAt: string;
+}
+
+export interface PaginatedAlunosResponse {
+  alunos: Aluno[];
+  total: number;
+  limit?: number | null;
+  offset?: number;
 }
 
 export interface Presenca {
@@ -146,6 +154,20 @@ export const alunosApi = {
     const params = professorId ? { professorId } : {};
     const { data } = await axios.get(`${API_BASE_URL}/alunos`, { params });
     return data.alunos;
+  },
+  getAlunosPaginated: async (options?: { professorId?: string; turmaId?: string; limit?: number; offset?: number }): Promise<PaginatedAlunosResponse> => {
+    const params: any = {};
+    if (options?.professorId) params.professorId = options.professorId;
+    if (options?.turmaId) params.turmaId = options.turmaId;
+    if (typeof options?.limit === 'number') params.limit = options.limit;
+    if (typeof options?.offset === 'number') params.offset = options.offset;
+    const { data } = await axios.get(`${API_BASE_URL}/alunos`, { params });
+    return {
+      alunos: data.alunos || [],
+      total: typeof data.total === 'number' ? data.total : (data.alunos || []).length,
+      limit: data.limit,
+      offset: data.offset,
+    };
   },
   getAlunosByTurma: async (turmaId: string): Promise<Aluno[]> => {
     const { data } = await axios.get(`${API_BASE_URL}/alunos/turma/${turmaId}`);

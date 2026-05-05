@@ -8,6 +8,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   eventosApi,
   EventoAgenda
 } from '@/lib/database';
@@ -19,6 +29,8 @@ import { ptBR } from 'date-fns/locale';
 export default function AgendaPessoalPage() {
   const [eventos, setEventos] = useState<EventoAgenda[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [eventoToDelete, setEventoToDelete] = useState<EventoAgenda | null>(null);
   const [editingEvento, setEditingEvento] = useState<EventoAgenda | null>(null);
   const [formData, setFormData] = useState({
     titulo: '',
@@ -104,27 +116,33 @@ export default function AgendaPessoalPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este evento?')) {
-      try {
-        await eventosApi.deleteEvento(id);
-        await loadEventos();
-        toast({
-          title: "Sucesso",
-          description: "Evento excluído com sucesso!"
-        });
-      } catch (error: any) {
-        console.error("Erro ao deletar evento:", error);
-        let errorMessage = "Erro ao deletar evento.";
-        if (error.response && error.response.data && error.response.data.error) {
-          errorMessage = error.response.data.error;
-        }
+    try {
+      await eventosApi.deleteEvento(id);
+      await loadEventos();
+      toast({
+        title: "Sucesso",
+        description: "Evento excluído com sucesso!"
+      });
+    } catch (error: any) {
+      console.error("Erro ao deletar evento:", error);
+      let errorMessage = "Erro ao deletar evento.";
+      if (error.response && error.response.data && error.response.data.error) {
+        errorMessage = error.response.data.error;
       }
       toast({
         title: "Erro",
         description: errorMessage,
         variant: "destructive"
       });
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setEventoToDelete(null);
     }
+  };
+
+  const openDeleteDialog = (evento: EventoAgenda) => {
+    setEventoToDelete(evento);
+    setIsDeleteDialogOpen(true);
   };
 
   const resetForm = () => {
@@ -312,7 +330,7 @@ export default function AgendaPessoalPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDelete(evento.id)}
+                      onClick={() => openDeleteDialog(evento)}
                       className="text-muted-foreground hover:text-destructive"
                     >
                       <Trash2 size={16} />
@@ -329,6 +347,23 @@ export default function AgendaPessoalPage() {
           ))
         )}
       </div>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir evento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está prestes a excluir o evento <strong>{eventoToDelete?.titulo || ''}</strong>. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setEventoToDelete(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => eventoToDelete && handleDelete(eventoToDelete.id)}>
+              Excluir evento
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

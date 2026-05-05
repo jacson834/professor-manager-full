@@ -6,6 +6,16 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   professoresApi,
   turmasApi,
   Professor
@@ -16,6 +26,8 @@ import { useToast } from '@/hooks/use-toast';
 export default function ProfessoresPage() {
   const [professores, setProfessores] = useState<Professor[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [professorToDelete, setProfessorToDelete] = useState<Professor | null>(null);
   const [editingProfessor, setEditingProfessor] = useState<Professor | null>(null);
   const [formData, setFormData] = useState({
     nome: '',
@@ -125,14 +137,12 @@ export default function ProfessoresPage() {
         return;
       }
 
-      if (window.confirm('Tem certeza que deseja excluir este professor?')) {
-        await professoresApi.deleteProfessor(id);
-        await loadProfessores();
-        toast({
-          title: "Sucesso",
-          description: "Professor excluído com sucesso!"
-        });
-      }
+      await professoresApi.deleteProfessor(id);
+      await loadProfessores();
+      toast({
+        title: "Sucesso",
+        description: "Professor excluído com sucesso!"
+      });
     } catch (error: any) {
       console.error("Erro ao deletar professor:", error);
       let errorMessage = "Erro ao deletar professor.";
@@ -144,7 +154,15 @@ export default function ProfessoresPage() {
         description: errorMessage,
         variant: "destructive"
       });
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setProfessorToDelete(null);
     }
+  };
+
+  const openDeleteDialog = (professor: Professor) => {
+    setProfessorToDelete(professor);
+    setIsDeleteDialogOpen(true);
   };
 
   const resetForm = () => {
@@ -277,7 +295,7 @@ export default function ProfessoresPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDelete(professor.id)}
+                      onClick={() => openDeleteDialog(professor)}
                       className="text-muted-foreground hover:text-destructive"
                     >
                       <Trash2 size={16} />
@@ -304,6 +322,26 @@ export default function ProfessoresPage() {
           ))
         )}
       </div>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir professor</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está prestes a excluir <strong>{professorToDelete?.nome || ''}</strong>. Essa ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setProfessorToDelete(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => professorToDelete && handleDelete(professorToDelete.id)}
+            >
+              Excluir professor
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

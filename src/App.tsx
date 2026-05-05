@@ -33,7 +33,7 @@ function ProtectedRoute({ children, roleRequired }: { children: React.ReactNode,
 
   if (isLoading) return <div className="flex h-screen items-center justify-center">Carregando...</div>;
   if (!user) return <Navigate to="/login" replace />;
-  if (roleRequired && user.role !== roleRequired && user.role !== 'admin') {
+  if (roleRequired && user.role !== roleRequired) {
     return <div className="flex h-screen items-center justify-center">Você não tem permissão para acessar esta página.</div>;
   }
 
@@ -65,13 +65,21 @@ const App = () => (
                     <PresencaPage />
                   </ProtectedRoute>
                 } />
-                <Route path="notas/:turmaId/:alunoId" element={<NotasPage />} />
+                <Route path="notas/:turmaId/:alunoId" element={
+                  <ProtectedRoute roleRequired="professor">
+                    <NotasPage />
+                  </ProtectedRoute>
+                } />
                 <Route path="planejamento" element={
                   <ProtectedRoute roleRequired="professor">
                     <PlanejamentoPage />
                   </ProtectedRoute>
                 } />
-                <Route path="analises" element={<AnalysesPage />} />
+                <Route path="analises" element={
+                  <ProtectedRoute roleRequired="professor">
+                    <AnalysesPage />
+                  </ProtectedRoute>
+                } />
                 <Route path="relatorios" element={<RelatoriosPage />} />
                 <Route path="configuracoes" element={
                   <ProtectedRoute roleRequired="admin">

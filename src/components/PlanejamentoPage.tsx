@@ -7,6 +7,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { CalendarDays, Plus, Edit, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -33,6 +43,8 @@ export default function PlanejamentoPage() {
   const [feriados, setFeriados] = useState<Feriado[]>([]); // Seus feriados, agora incluindo os nacionais sincronizados
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isHolidayDialogOpen, setIsHolidayDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [planejamentoToDelete, setPlanejamentoToDelete] = useState<PlanejamentoAula | null>(null);
   const [planejamentoAtual, setPlanejamentoAtual] = useState<PlanejamentoAula | null>(null);
 
   // Estados para formulários
@@ -243,9 +255,6 @@ export default function PlanejamentoPage() {
   };
 
   const handleExcluirPlanejamento = async (id: string) => {
-    if (!window.confirm('Tem certeza que deseja excluir este planejamento?')) {
-      return;
-    }
     try {
       await planejamentosApi.deletePlanejamento(id);
       await carregarDados();
@@ -264,7 +273,15 @@ export default function PlanejamentoPage() {
         description: errorMessage,
         variant: "destructive"
       });
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setPlanejamentoToDelete(null);
     }
+  };
+
+  const openDeleteDialog = (planejamento: PlanejamentoAula) => {
+    setPlanejamentoToDelete(planejamento);
+    setIsDeleteDialogOpen(true);
   };
 
   const resetForm = () => {
@@ -447,7 +464,7 @@ export default function PlanejamentoPage() {
                           <Button
                             variant="destructive"
                             size="sm"
-                            onClick={() => handleExcluirPlanejamento(getPlanejamentoDoDia(dataSelecionada)!.id)}
+                            onClick={() => openDeleteDialog(getPlanejamentoDoDia(dataSelecionada)!)}
                           >
                             <Trash2 className="h-4 w-4 mr-1" />
                             Excluir
@@ -503,6 +520,23 @@ export default function PlanejamentoPage() {
           )}
         </div>
       </div>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir planejamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação excluirá o planejamento selecionado e não poderá ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPlanejamentoToDelete(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => planejamentoToDelete && handleExcluirPlanejamento(planejamentoToDelete.id)}>
+              Excluir planejamento
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
